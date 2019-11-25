@@ -11,9 +11,14 @@ const meadows = [
     {
         path: '~/.bashrc',
     },
-    // iterm config
-    // conemu config
-    // aws config
+    {
+        path: '~/.config/ashton'
+    },
+    {
+        path: '~/iterm'
+    }
+    // conemu config (windows)
+    // personal aws config (windows)
     // global gitignore
 ]
 
