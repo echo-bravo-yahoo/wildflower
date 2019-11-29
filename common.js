@@ -11,7 +11,7 @@ function fixDestPath(filepath) {
     if(filepath[0] === '~') {
         filepath = path.join(process.env.HOME, filepath.slice(1))
     }
-    return path.join(__dirname, '/meadows', path.parse(filepath).base)
+    return path.join(__dirname, '/meadows', filepath.split(process.env.HOME).slice(1).join(''))
 }
 
 module.exports = {
