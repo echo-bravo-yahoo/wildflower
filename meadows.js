@@ -16,6 +16,9 @@ const meadows = [
     },
     {
         path: '~/iterm'
+    },
+    {
+        path: '~/.vit'
     }
     // conemu config (windows)
     // personal aws config (windows)
