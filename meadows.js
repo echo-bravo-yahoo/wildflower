@@ -19,6 +19,9 @@ const meadows = [
     },
     {
         path: '~/.vit'
+    },
+    {
+        path: '~/.secrets',
     }
     // conemu config (windows)
     // personal aws config (windows)
