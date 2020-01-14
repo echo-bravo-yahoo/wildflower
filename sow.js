@@ -9,7 +9,7 @@ const { fixSrcPath: fixDestPath, fixDestPath: fixSrcPath } = require('./common')
 promises = []
 
 meadows.forEach((meadow) => {
-    promises.push(copy(fixSrcPath(meadow.path), fixDestPath(meadow.path))
+    promises.push(copy(fixSrcPath(meadow.path), fixDestPath(meadow.path), { dot: true })
         .catch(console.warn))
 })    
 
