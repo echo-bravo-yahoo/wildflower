@@ -21,7 +21,10 @@ const meadows = [
         path: '~/.vit'
     },
     {
-        path: '~/.secrets',
+        path: '~/.secrets'
+    },
+    {
+        path: '~/.gitconfig'
     }
     // conemu config (windows)
     // personal aws config (windows)
