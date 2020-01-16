@@ -25,6 +25,9 @@ const meadows = [
     },
     {
         path: '~/.gitconfig'
+    },
+    {
+        path: '~/.gitignore'
     }
     // conemu config (windows)
     // personal aws config (windows)
