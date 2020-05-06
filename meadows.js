@@ -36,6 +36,9 @@ const meadows = [
     {
         // used by nvim, thefuck
         path: '~/.config'
+    },
+    {
+        path: '~/.p10k.zsh'
     }
     // conemu config (windows)
     // personal aws config (windows)
