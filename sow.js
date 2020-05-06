@@ -9,8 +9,8 @@ const { fixSrcPath: fixDestPath, fixDestPath: fixSrcPath } = require('./common')
 promises = []
 
 meadows.forEach((meadow) => {
-    promises.push(copy(fixSrcPath(meadow.path), fixDestPath(meadow.path), { dot: true })
+    promises.push(copy(fixSrcPath(meadow.path), fixDestPath(meadow.path), { dot: true, overwrite: true })
         .catch(console.warn))
-})    
+})
 
 Promise.all(promises).then(() => console.log('Done sowing.')).catch((err) => console.error('Error while sowing:', err))
