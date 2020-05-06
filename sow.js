@@ -6,10 +6,15 @@ const meadows = require('./meadows')
 // So we'll have to use them named in reverse
 const { fixSrcPath: fixDestPath, fixDestPath: fixSrcPath, logNoSuchFile } = require('./common')
 
-promises = []
+const promises = []
+const copyOptions = {
+  dot: true,
+  overwrite: true,
+  expand: true
+}
 
 meadows.forEach((meadow) => {
-    promises.push(copy(fixSrcPath(meadow.path), fixDestPath(meadow.path), { dot: true, overwrite: true })
+    promises.push(copy(fixSrcPath(meadow.path), fixDestPath(meadow.path), copyOptions)
       .catch(logNoSuchFile))
 })
 
