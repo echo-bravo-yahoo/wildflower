@@ -32,6 +32,10 @@ const meadows = [
     {
         // used by ag / fzf
         path: '~/.ignore'
+    },
+    {
+        // used by nvim, thefuck
+        path: '~/.config'
     }
     // conemu config (windows)
     // personal aws config (windows)
