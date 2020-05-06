@@ -5,4 +5,3 @@ Modify meadows.js with the paths to the dotfiles you want to back up. Then run `
 - Comb through the git history and make sure no private details are exposed.
 
 ## Known bugs:
-- Should ignore file not found on gathering
