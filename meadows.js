@@ -28,6 +28,10 @@ const meadows = [
     },
     {
         path: '~/.gitignore'
+    },
+    {
+        // used by ag / fzf
+        path: '~/.ignore'
     }
     // conemu config (windows)
     // personal aws config (windows)
