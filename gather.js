@@ -8,10 +8,9 @@ const copyOptions = {
   dot: true,
   overwrite: true,
   expand: true,
-  filter: [
-    '**/*',
-    '!node_modules'
-  ]
+  filter: function(e) {
+    return !(e.includes('node_modules'))
+  }
 }
 
 meadows.forEach((meadow) => {
