@@ -4,7 +4,7 @@ const logNoSuchFile = (error) => {
   if(error.errno === -2 && error.code === 'ENOENT') {
     console.error('Did not find file', error.path)
   } else {
-    throw e
+    throw error
   }
 }
 
