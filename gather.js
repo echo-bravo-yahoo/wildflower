@@ -9,7 +9,8 @@ const copyOptions = {
   overwrite: true,
   expand: true,
   filter: [
-    'node_modules'
+    '**/*',
+    '!node_modules'
   ]
 }
 
