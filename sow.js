@@ -4,13 +4,13 @@ const path = require('path')
 const meadows = require('./meadows')
 // The functions are named relative to gathering, not sowing
 // So we'll have to use them named in reverse
-const { fixSrcPath: fixDestPath, fixDestPath: fixSrcPath } = require('./common')
+const { fixSrcPath: fixDestPath, fixDestPath: fixSrcPath, logNoSuchFile } = require('./common')
 
 promises = []
 
 meadows.forEach((meadow) => {
     promises.push(copy(fixSrcPath(meadow.path), fixDestPath(meadow.path), { dot: true, overwrite: true })
-        .catch(console.warn))
+      .catch(logNoSuchFile))
 })
 
 Promise.all(promises).then(() => console.log('Done sowing.')).catch((err) => console.error('Error while sowing:', err))

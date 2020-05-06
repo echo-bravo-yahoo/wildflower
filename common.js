@@ -1,5 +1,13 @@
 const path = require('path')
 
+const logNoSuchFile = (error) => {
+  if(error.errno === -2 && error.code === 'ENOENT') {
+    console.error('Did not find file', error.path)
+  } else {
+    throw e
+  }
+}
+
 function fixSrcPath(filepath) {
     if(filepath[0] === '~') {
         filepath = path.join(process.env.HOME, filepath.slice(1))
@@ -16,5 +24,6 @@ function fixDestPath(filepath) {
 
 module.exports = {
   fixSrcPath,
-  fixDestPath
+  fixDestPath,
+  logNoSuchFile
 }
