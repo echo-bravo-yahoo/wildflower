@@ -39,6 +39,9 @@ const meadows = [
     },
     {
         path: '~/.p10k.zsh'
+    },
+    {
+        path: '~/.oci'
     }
     // conemu config (windows)
     // personal aws config (windows)
