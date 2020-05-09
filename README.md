@@ -5,4 +5,5 @@ Modify meadows.js with the paths to the dotfiles you want to back up. Then run `
 - Comb through the git history and make sure no private details are exposed.
 
 ## Known bugs:
-- Deleting a file in the filesystem and then running 'node gather' does not clear the file out of the meadows/ directory.
+- Gather deletes a directory synchronously when an async workflow would be ideal
+- No way to specify files to ignore

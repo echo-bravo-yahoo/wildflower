@@ -13,6 +13,12 @@ const copyOptions = {
   }
 }
 
+const paths = fse.readdirSync('./meadows')
+// Make Async
+paths
+  .filter((path) => path !== '.git')
+  .forEach((path) => fse.removeSync(`./meadows/${path}`))
+
 meadows.forEach((meadow) => {
     promises.push(copy(fixSrcPath(meadow.path), fixDestPath(meadow.path), copyOptions)
       .catch(logNoSuchFile))
