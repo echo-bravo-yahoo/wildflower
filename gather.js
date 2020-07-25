@@ -13,6 +13,7 @@ const copyOptions = {
   }
 }
 
+fse.ensureDirSync('./meadows')
 const paths = fse.readdirSync('./meadows')
 // Make Async
 paths
