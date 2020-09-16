@@ -42,6 +42,9 @@ const meadows = [
     },
     {
         path: '~/.oci'
+    },
+    {
+        path: '~/notes'
     }
     // conemu config (windows)
     // personal aws config (windows)
