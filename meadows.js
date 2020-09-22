@@ -45,6 +45,9 @@ const meadows = [
     },
     {
         path: '~/notes'
+    },
+    {
+        path: '~/Library/Application Support/BetterTouchTool'
     }
     // conemu config (windows)
     // personal aws config (windows)
