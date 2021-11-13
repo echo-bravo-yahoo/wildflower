@@ -44,9 +44,6 @@ const meadows = [
         path: '~/.oci'
     },
     {
-        path: '~/notes'
-    },
-    {
         path: '~/Library/Application Support/BetterTouchTool'
     }
     // conemu config (windows)
