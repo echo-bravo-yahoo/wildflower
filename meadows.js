@@ -12,9 +12,6 @@ const meadows = [
         path: '~/.bashrc',
     },
     {
-        path: '~/.config/ashton'
-    },
-    {
         path: '~/iterm'
     },
     {
@@ -31,10 +28,12 @@ const meadows = [
     },
     {
         // used by ag / fzf
+        // does not exist on my mac!
         path: '~/.ignore'
     },
     {
-        // used by nvim, thefuck
+        // my aliases, config, etc live in ~/.config/$NAME
+        // also used by nvim
         path: '~/.config'
     },
     {
@@ -43,9 +42,6 @@ const meadows = [
     {
         path: '~/.oci'
     },
-    {
-        path: '~/Library/Application Support/BetterTouchTool'
-    }
     // conemu config (windows)
     // personal aws config (windows)
     // global gitignore
