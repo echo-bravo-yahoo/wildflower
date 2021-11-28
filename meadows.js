@@ -34,7 +34,15 @@ const meadows = [
     {
         // my aliases, config, etc live in ~/.config/$NAME
         // also used by nvim
-        path: '~/.config'
+        path: '~/.config',
+        filter: [
+          "**/*",
+          "!**/coc/**",
+          "!**/configstore/**",
+          "!**/thefuck/**",
+          "!**/iterm2/**",
+          "!**/yarn/**"
+        ]
     },
     {
         path: '~/.p10k.zsh'
