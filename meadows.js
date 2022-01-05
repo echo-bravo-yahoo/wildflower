@@ -41,7 +41,9 @@ const meadows = [
           "!**/configstore/**",
           "!**/thefuck/**",
           "!**/iterm2/**",
-          "!**/yarn/**"
+          "!**/yarn/**",
+          "!**/wslu/**",
+          "!**/syncthing/**"
         ]
     },
     {
