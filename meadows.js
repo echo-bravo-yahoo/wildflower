@@ -9,6 +9,9 @@ const meadows = [
         path: '~/.zshrc',
     },
     {
+        path: '~/.zshenv',
+    },
+    {
         path: '~/.bashrc',
     },
     {
