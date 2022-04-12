@@ -27,6 +27,9 @@ const meadows = [
         path: '~/.gitignore'
     },
     {
+        path: '~/workspace/applescript'
+    },
+    {
         // used by ag / fzf
         // does not exist on my mac!
         path: '~/.ignore'
