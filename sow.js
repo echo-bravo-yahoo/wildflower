@@ -1,5 +1,5 @@
 const copy = require('recursive-copy')
-const meadows = require('./meadows')
+const meadows = require('./valley/meadows.js')
 const { fixInstalledPath, fixSourceControlPath, logNoSuchFile, buildCopyOptions } = require('./common')
 
 const promises = []

@@ -1,5 +1,5 @@
 const fse = require('fs-extra')
-const meadows = require('./meadows')
+const meadows = require('./valley/meadows.js')
 const copy = require('recursive-copy')
 const { fixInstalledPath, fixSourceControlPath, logNoSuchFile, buildCopyOptions } = require('./common')
 
@@ -14,12 +14,12 @@ const copyOptions = {
   }
 }
 
-fse.ensureDirSync('./meadows')
-const paths = fse.readdirSync('./meadows')
+fse.ensureDirSync('./valley/meadows')
+const paths = fse.readdirSync('./valley/meadows')
 // Make Async
 paths
   .filter((path) => path !== '.git')
-  .forEach((path) => fse.removeSync(`./meadows/${path}`))
+  .forEach((path) => fse.removeSync(`./valley/meadows/${path}`))
 
 meadows.forEach((meadow) => {
     promises.push(copy(
