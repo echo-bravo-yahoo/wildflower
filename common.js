@@ -12,30 +12,27 @@ function buildCopyOptions(baseOptions, meadow) {
 }
 
 const logNoSuchFile = (error) => {
-  if(error.errno === -2 && error.code === 'ENOENT') {
+  if (error.errno === -2 && error.code === 'ENOENT') {
     console.error('Did not find file', error.path)
   } else {
     throw error
   }
 }
 
-function fixSrcPath(filepath) {
-    if(filepath[0] === '~') {
-        filepath = path.join(process.env.HOME, filepath.slice(1))
-    }
-    return filepath
+function fixInstalledPath(filepath) {
+  if (filepath[0] === '~') {
+    filepath = path.join(process.env.HOME, filepath.slice(1))
+  }
+  return filepath
 }
 
-function fixDestPath(filepath) {
-    if(filepath[0] === '~') {
-        filepath = path.join(process.env.HOME, filepath.slice(1))
-    }
-    return path.join(__dirname, '/meadows', filepath.split(process.env.HOME).slice(1).join(''))
+function fixSourceControlPath(filepath) {
+  return path.join(__dirname, '/valley/meadows', filepath)
 }
 
 module.exports = {
   buildCopyOptions,
-  fixSrcPath,
-  fixDestPath,
+  fixInstalledPath,
+  fixSourceControlPath,
   logNoSuchFile
 }

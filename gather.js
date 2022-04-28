@@ -1,7 +1,7 @@
 const fse = require('fs-extra')
 const meadows = require('./meadows')
 const copy = require('recursive-copy')
-const { fixSrcPath, fixDestPath, logNoSuchFile, buildCopyOptions } = require('./common')
+const { fixInstalledPath, fixSourceControlPath, logNoSuchFile, buildCopyOptions } = require('./common')
 
 const promises = []
 const copyOptions = {
@@ -23,10 +23,12 @@ paths
 
 meadows.forEach((meadow) => {
     promises.push(copy(
-      fixSrcPath(meadow.path),
-      fixDestPath(meadow.path),
+      fixInstalledPath(meadow.path),
+      fixSourceControlPath(meadow.path),
       buildCopyOptions(copyOptions, meadow)
-    ).catch(logNoSuchFile))
+    )
+      .then((...args) => console.log(args, `Copied '${fixInstalledPath(meadow.path)}' to '${fixSourceControlPath(meadow.path)}'`))
+      .catch(logNoSuchFile))
 })
 
 Promise.all(promises)

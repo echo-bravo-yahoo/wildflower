@@ -1,10 +1,6 @@
-const fse = require('fs-extra')
 const copy = require('recursive-copy')
-const path = require('path')
 const meadows = require('./meadows')
-// The functions are named relative to gathering, not sowing
-// So we'll have to use them named in reverse
-const { fixSrcPath: fixDestPath, fixDestPath: fixSrcPath, logNoSuchFile, buildCopyOptions } = require('./common')
+const { fixInstalledPath, fixSourceControlPath, logNoSuchFile, buildCopyOptions } = require('./common')
 
 const promises = []
 const copyOptions = {
@@ -14,11 +10,13 @@ const copyOptions = {
 }
 
 meadows.forEach((meadow) => {
-    promises.push(copy(
-      fixSrcPath(meadow.path),
-      fixDestPath(meadow.path),
-      buildCopyOptions(copyOptions, meadow)
-    ).catch(logNoSuchFile))
+  promises.push(copy(
+    fixSourceControlPath(meadow.path),
+    fixInstalledPath(meadow.path),
+    buildCopyOptions(copyOptions, meadow)
+  )
+    .then(() => console.log(`Copied '${fixSourceControlPath(meadow.path)}' to '${fixDestPath(meadow.path)}'`))
+    .catch(logNoSuchFile))
 })
 
 Promise.all(promises)
