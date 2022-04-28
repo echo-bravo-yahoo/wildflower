@@ -1,5 +1,5 @@
 const copy = require('recursive-copy')
-const meadows = require('./meadows')
+const meadows = require('./valley/meadows.js')
 const { fixInstalledPath, fixSourceControlPath, logNoSuchFile, buildCopyOptions } = require('./common')
 
 const promises = []
@@ -15,7 +15,7 @@ meadows.forEach((meadow) => {
     fixInstalledPath(meadow.path),
     buildCopyOptions(copyOptions, meadow)
   )
-    .then(() => console.log(`Copied '${fixSourceControlPath(meadow.path)}' to '${fixDestPath(meadow.path)}'`))
+    .then(() => console.log(`Copied '${fixSourceControlPath(meadow.path)}' to '${fixInstalledPath(meadow.path)}'`))
     .catch(logNoSuchFile))
 })
 
