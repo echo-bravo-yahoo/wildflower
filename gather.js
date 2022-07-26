@@ -1,7 +1,7 @@
 const fse = require('fs-extra')
-const meadows = require('./meadows')
+const meadows = require('./valley/meadows.js')
 const copy = require('recursive-copy')
-const { fixSrcPath, fixDestPath, logNoSuchFile, buildCopyOptions } = require('./common')
+const { fixInstalledPath, fixSourceControlPath, logNoSuchFile, buildCopyOptions } = require('./common')
 
 const promises = []
 const copyOptions = {
@@ -14,19 +14,21 @@ const copyOptions = {
   }
 }
 
-fse.ensureDirSync('./meadows')
-const paths = fse.readdirSync('./meadows')
+fse.ensureDirSync('./valley/meadows')
+const paths = fse.readdirSync('./valley/meadows')
 // Make Async
 paths
   .filter((path) => path !== '.git')
-  .forEach((path) => fse.removeSync(`./meadows/${path}`))
+  .forEach((path) => fse.removeSync(`./valley/meadows/${path}`))
 
 meadows.forEach((meadow) => {
     promises.push(copy(
-      fixSrcPath(meadow.path),
-      fixDestPath(meadow.path),
+      fixInstalledPath(meadow.path),
+      fixSourceControlPath(meadow.path),
       buildCopyOptions(copyOptions, meadow)
-    ).catch(logNoSuchFile))
+    )
+      .then((...args) => console.log(args, `Copied '${fixInstalledPath(meadow.path)}' to '${fixSourceControlPath(meadow.path)}'`))
+      .catch(logNoSuchFile))
 })
 
 Promise.all(promises)
