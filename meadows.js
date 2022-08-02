@@ -42,14 +42,11 @@ const meadows = [
         // also used by nvim
         path: '~/.config',
         filter: [
-          "**/*",
-          "!**/coc/**",
-          "!**/configstore/**",
-          "!**/thefuck/**",
-          "!**/iterm2/**",
-          "!**/yarn/**",
-          "!**/wslu/**",
-          "!**/syncthing/**"
+          '!**/*',
+          'ashton/**',
+          'fontconfig/**',
+          'nvim/**',
+          'qmk/**'
         ]
     },
     {
