@@ -1,6 +1,7 @@
-const copy = require('recursive-copy')
-const meadows = require('./valley/meadows.js')
-const { fixInstalledPath, fixSourceControlPath, logNoSuchFile, buildCopyOptions } = require('./common')
+import copy from 'npm:recursive-copy@2.0.10'
+import { fixInstalledPath, fixSourceControlPath, logNoSuchFile, buildCopyOptions } from './common.js'
+
+const meadows = eval((new TextDecoder("utf-8")).decode(Deno.readFileSync(`./meadows.js`)))
 
 const promises = []
 const copyOptions = {

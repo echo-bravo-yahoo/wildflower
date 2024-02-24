@@ -1,6 +1,6 @@
-const path = require('path')
+import * as path from "https://deno.land/std@0.217.0/path/mod.ts";
 
-function buildCopyOptions(baseOptions, meadow) {
+export function buildCopyOptions(baseOptions, meadow) {
   const copyOptions = { ...baseOptions }
 
   // note: subtle bug: if meadow has a filter, it loses the default !node_modules filter
@@ -11,7 +11,7 @@ function buildCopyOptions(baseOptions, meadow) {
   return copyOptions
 }
 
-const logNoSuchFile = (error) => {
+export const logNoSuchFile = (error) => {
   if (error.errno === -2 && error.code === 'ENOENT') {
     console.error('Did not find file', error.path)
   } else {
@@ -19,20 +19,13 @@ const logNoSuchFile = (error) => {
   }
 }
 
-function fixInstalledPath(filepath) {
+export function fixInstalledPath(filepath) {
   if (filepath[0] === '~') {
-    filepath = path.join(process.env.HOME, filepath.slice(1))
+    filepath = path.join(Deno.env.get('HOME'), filepath.slice(1))
   }
   return filepath
 }
 
-function fixSourceControlPath(filepath) {
-  return path.join(__dirname, '/valley/meadows', filepath)
-}
-
-module.exports = {
-  buildCopyOptions,
-  fixInstalledPath,
-  fixSourceControlPath,
-  logNoSuchFile
+export function fixSourceControlPath(filepath) {
+  return path.join(Deno.cwd(), '/meadows', filepath)
 }
