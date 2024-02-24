@@ -6,10 +6,12 @@
     curl -o- https://raw.githubusercontent.com/MynockSpit/wildflower/master/install.sh | sh
     ```
 2. Install Deno (or let wildflower install Deno for you.)
-3. Create a new directory where you'll store your dotfiles (e.g. `valley`), and run `wildflower till`. This will create a sample `meadows.js` (e.g. `valley/meadows.js`) file that you can add files to.
-3. Modify the created `meadows.js` with the paths of config files to save.
-4. Run `wildflower gather` to collect all the files you've specified in `meadows.js`.
-5. Store the contents of `./valley` any way you like.
+3. Create a new directory where you'll store your dotfiles (e.g. `valley`).
+<!-- 4. Run `wildflower till`. This will create a sample `meadows.js` (e.g. `valley/meadows.js`) file that you can add files to. -->
+4. Create a sample `meadows.js` in the new directory as an array of file objects. (e.g. `[{ path: "path/to/file" }]`)
+5. Add files you want to gather to the `meadows.js`.
+6. Run `wildflower gather` to collect all the files you've specified in `meadows.js`.
+7. Store the contents of `./valley` any way you like.
 
 ### Returning users 
 
@@ -20,6 +22,13 @@
 2. Install Deno (or let wildflower install Deno for you.)
 2. Pull in your existing meadows.
 3. Run `wildflower sow` distribute your config files.
+
+## Todo:
+- Add a `till` function that creates `meadows.js` automatically.
+- Create an "update" or "install" command or something, so that we can get new versions of wildflower (b/c deno caching is a thing)
+- Possibly use the update or install instead of the initial installer?
+- Add ability for wildflower to run commands
+- Add some kind of ordering mechanism (wait for 'x' before doing 'y'.) 
 
 ## Known bugs:
 - Gather deletes a directory synchronously when an async workflow would be ideal
