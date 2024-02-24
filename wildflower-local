@@ -6,9 +6,9 @@ script_root=$(dirname ${x#*n})
 
 # The $DENO_INSTALL variable will be set if DENO has been installed correctly.
 if [ ! -s "$DENO_INSTALL" ]; then
-  echo "Install DENO here. Maybe prompt first?"
   # Deno require a manual step (adding to the PATH), so we can't do other commands until the user has done that. :/ 
   # I mean, we could try to guess at the deno install, but I'd rather not. At least for now
+  curl -fsSL https://deno.land/install.sh | sh
 else
   if [ "$1" = "gather" ]; then
     deno run --allow-read --allow-write --allow-env $script_root/gather.js
