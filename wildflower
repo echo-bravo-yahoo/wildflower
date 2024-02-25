@@ -1,6 +1,8 @@
 #!/bin/sh
 
-script_root=https://raw.githubusercontent.com/MynockSpit/wildflower/master
+if [ ! -n "$script_root" ]; then
+  script_root=https://raw.githubusercontent.com/MynockSpit/wildflower/master
+fi
 
 # The $DENO_INSTALL variable will be set if DENO has been installed correctly.
 if [ ! -s "$DENO_INSTALL" ]; then
