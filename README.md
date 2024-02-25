@@ -7,8 +7,7 @@
     ```
 2. Install Deno (or let wildflower install Deno for you.)
 3. Create a new directory where you'll store your dotfiles (e.g. `valley`).
-<!-- 4. Run `wildflower till`. This will create a sample `meadows.js` (e.g. `valley/meadows.js`) file that you can add files to. -->
-4. Create a sample `meadows.js` in the new directory as an array of file objects. (e.g. `[{ path: "path/to/file" }]`)
+4. Run `wildflower till`. This will create a sample `meadows.js` (e.g. `valley/meadows.js`) to use as a starting-point.
 5. Add files you want to gather to the `meadows.js`.
 6. Run `wildflower gather` to collect all the files you've specified in `meadows.js`.
 7. Store the contents of `./valley` any way you like.
@@ -24,7 +23,6 @@
 3. Run `wildflower sow` distribute your config files.
 
 ## Todo:
-- Add a `till` function that creates `meadows.js` automatically.
 - Create an "update" or "install" command or something, so that we can get new versions of wildflower (b/c deno caching is a thing)
 - Possibly use the update or install instead of the initial installer?
 - Add ability for wildflower to run commands

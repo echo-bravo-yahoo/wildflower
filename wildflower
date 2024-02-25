@@ -27,5 +27,7 @@ else
     deno run --allow-read --allow-write --allow-env $script_root/gather.js
   elif [ "$1" = "sow" ]; then
     deno run --allow-read --allow-write --allow-env $script_root/sow.js
+  elif [ "$1" = "till" ]; then
+    deno run --allow-read --allow-write --allow-env $script_root/till.js
   fi
 fi
