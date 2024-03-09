@@ -12,7 +12,7 @@ if [ ! -s "$DENO_INSTALL" ]; then
 
   curl -fsSL https://deno.land/install.sh | sh || {
     echo
-    echo "No permission install failed. Provide password for sudo install (or install it manually yourself.)"
+    echo "No-permission install failed. Provide password for sudo install (or install it manually yourself.)"
 
     # Not sure we want this part?
     curl -fsSL https://deno.land/install.sh | sudo -u $USER sh || {
@@ -23,11 +23,5 @@ if [ ! -s "$DENO_INSTALL" ]; then
     }
   }
 else
-  if [ "$1" = "gather" ]; then
-    deno run --allow-read --allow-write --allow-env $script_root/gather.js
-  elif [ "$1" = "sow" ]; then
-    deno run --allow-read --allow-write --allow-env $script_root/sow.js
-  elif [ "$1" = "till" ]; then
-    deno run --allow-read --allow-write --allow-env $script_root/till.js
-  fi
+  deno run --allow-read --allow-write --allow-env $script_root/wildflower.js
 fi
