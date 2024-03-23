@@ -29,3 +29,93 @@ export function fixInstalledPath(filepath) {
 export function fixSourceControlPath(filepath) {
   return path.join(Deno.cwd(), '/meadows', filepath)
 }
+
+export async function bash(cmd, options = {}) {
+  return run(cmd, { ...options, shell: 'bash'})
+}
+
+export async function zsh(cmd, options = {}) {
+  return run(cmd, { ...options, shell: 'zsh' })
+}
+
+export async function run(
+  cmd,
+  {
+    // maybe do some smarts to determine which shell to use?
+    // also, this breaks hard on windows if you're not in WSL
+    shell = 'bash',
+    // the -i flag causes most of the profiles to be loaded, but causes a hit in performance
+    // We probably don't care?
+    flags = ['-i'],
+    ...options
+  } = {}) {
+  const command = new Deno.Command(shell, {
+    args: [...flags, '-c', `${cmd}`],
+    ...options,
+
+    stdin: "inherit",
+    stdout: "piped",
+    stderr: "piped",
+
+    // more options here: https://deno.land/api@v1.41.3?s=Deno.CommandOptions
+  });
+
+  const process = command.spawn();
+
+  const decoder = new TextDecoder("utf-8")
+
+  let out = ''
+  let stdout = ''
+  let stderr = ''
+
+  // https://developer.mozilla.org/en-US/docs/Web/API/WritableStream/WritableStream#examples
+  process.stdout.pipeTo(new WritableStream(
+      {
+        write(chunk) {
+          return new Promise((resolve) => {
+            const decodedChunk = decoder.decode(chunk)
+            out += decodedChunk
+            stdout += decodedChunk
+            Deno.stdout.write(chunk)
+            resolve();
+          });
+        },
+      },
+    ))
+
+  process.stderr.pipeTo(new WritableStream(
+    {
+      write(chunk) {
+        return new Promise((resolve) => {
+          const decodedChunk = decoder.decode(chunk)
+          out += decodedChunk
+          stderr += decodedChunk
+          Deno.stderr.write(chunk)
+          resolve();
+        });
+      },
+    },
+  ))
+
+  const status = await process.status
+  const code = status.code
+
+  // console.log({ out, stdout, stderr, code: status .code})
+
+  return { out, stdout, stderr, code }
+}
+
+function computeVars(vars = {}) {
+  const computedVars = {}
+  Object.entries(vars).forEach(([key, fn]) => {
+    computedVars[key] = fn()
+  })
+  return computedVars
+}
+
+export function parseMeadows(filePath = `./meadows.js`) {
+  let valley
+  eval((new TextDecoder("utf-8")).decode(Deno.readFileSync(filePath)))
+
+  return { meadows: valley.meadows, vars: computeVars(valley?.vars) }
+}

@@ -25,4 +25,4 @@ if [ ! -s "$DENO_INSTALL" ]; then
   }
 fi
 
-deno run --allow-read --allow-write --allow-env $script_root/wildflower.js "$@"
+deno run --allow-read --allow-write --allow-env --allow-sys $script_root/wildflower.js "$@"
