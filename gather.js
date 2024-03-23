@@ -32,6 +32,10 @@ export async function gather() {
           .catch(logNoSuchFile)
       }
       // we're ignoring "run"s during gather for now.
+    } else {
+      if (meadow.path) {
+        console.log(`Skipping '${meadow.path}' on this system.`)
+      }
     }
   })
 

@@ -27,6 +27,12 @@ export async function sow() {
       } else if (meadow.run) {
         return meadow.run(vars)
       }
+    } else {
+      if (meadow.path) {
+        console.log(`Skipping '${meadow.path}' on this system.`)
+      } else if (meadow.run) {
+        console.log(`Skipping run on this system:\n${meadow.run}`)
+      }
     }
   })
 
