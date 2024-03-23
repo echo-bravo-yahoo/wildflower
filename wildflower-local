@@ -3,6 +3,6 @@
 # A simple variable injection for wildflower that lets you run it locally (for testing, mainly)
 
 x=$(lsof -p $$ -Fn0 | tail -1);
-script_root=$(dirname ${x#*n})
+export script_root=$(dirname ${x#*n})
 
-./wildflower "$@"
+$script_root/wildflower "$@"
