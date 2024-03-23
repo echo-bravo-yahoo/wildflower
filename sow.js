@@ -15,7 +15,7 @@ export async function sow() {
   }
 
   const promises = meadows.map((meadow) => {
-    if (meadow?.if() ?? true) {
+    if (meadow.if?.(vars) ?? true) {
       if (meadow.path) {
         return copy(
           fixSourceControlPath(meadow.path),
