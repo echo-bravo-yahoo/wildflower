@@ -1,7 +1,9 @@
 #!/bin/sh
 
 if [ ! -n "$script_root" ]; then
-  script_root=https://raw.githubusercontent.com/MynockSpit/wildflower/master
+  # Getting the hash to make sure that we're always pulling the latest. Do something better eventually.
+  hash=$(curl https://api.github.com/repos/MynockSpit/wildflower/commits/master 2>/dev/null | grep sha | head -n1 | cut -d'"' -f4)
+  script_root=https://raw.githubusercontent.com/MynockSpit/wildflower/$hash
 fi
 
 # The $DENO_INSTALL variable will be set if DENO has been installed correctly.
