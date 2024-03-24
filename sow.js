@@ -14,29 +14,34 @@ export async function sow() {
     expand: true
   }
 
-  const promises = meadows.map(async (meadow) => {
-    if (await (meadow.if?.(vars) ?? true)) {
-      if (meadow.path) {
-        return copy(
-          fixSourceControlPath(meadow.path),
-          fixInstalledPath(meadow.path),
-          buildCopyOptions(copyOptions, meadow)
-        )
-          .then(() => console.log(`Copied '${fixSourceControlPath(meadow.path)}' to '${fixInstalledPath(meadow.path)}'`))
-          .catch(logNoSuchFile)
-      } else if (meadow.run) {
-        return meadow.run(vars)
-      }
-    } else {
-      if (meadow.path) {
-        console.log(`Skipping '${meadow.path}' on this system.`)
-      } else if (meadow.run) {
-        console.log(`Skipping run on this system:\n${meadow.run}`)
+  try {
+    for (const [index, meadow] of Object.entries(meadows)) {
+      let shouldSowMeadow = await (meadow.if?.(vars) ?? true)
+      if (shouldSowMeadow) {
+
+        // We could, if we wanted to get smart, throw files together in a batch, then trigger them asynchronously.
+        if (meadow.path) {
+          await copy(
+            fixSourceControlPath(meadow.path),
+            fixInstalledPath(meadow.path),
+            buildCopyOptions(copyOptions, meadow)
+          )
+            .then(() => console.log(`Copied '${fixSourceControlPath(meadow.path)}' to '${fixInstalledPath(meadow.path)}'`))
+            .catch(logNoSuchFile)
+        } else if (meadow.run) {
+          await meadow.run(vars)
+        }
+      } else {
+        if (meadow.path) {
+          console.log(`Skipping file '${meadow.path}'.`)
+        } else if (meadow.run) {
+          console.log(`Skipping run step "${meadow.name || `Step ${index}`}".`)
+        }
       }
     }
-  })
 
-  await Promise.all(promises)
-    .then(() => console.log('Done sowing.'))
-    .catch((err) => console.error('Error while sowing:', err))
+    console.log('Done sowing.')
+  } catch (err) {
+    console.error('Error while sowing:', err)
+  }
 }

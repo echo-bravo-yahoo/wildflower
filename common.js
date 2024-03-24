@@ -31,7 +31,7 @@ export function fixSourceControlPath(filepath) {
 }
 
 export async function bash(cmd, options = {}) {
-  return run(cmd, { ...options, shell: 'bash'})
+  return run(cmd, { ...options, shell: 'bash' })
 }
 
 export async function zsh(cmd, options = {}) {
@@ -49,6 +49,7 @@ export async function run(
     flags = ['-i'],
     ...options
   } = {}) {
+
   const command = new Deno.Command(shell, {
     args: [...flags, '-c', `${cmd}`],
     ...options,
@@ -69,33 +70,29 @@ export async function run(
   let stderr = ''
 
   // https://developer.mozilla.org/en-US/docs/Web/API/WritableStream/WritableStream#examples
-  process.stdout.pipeTo(new WritableStream(
-      {
-        write(chunk) {
-          return new Promise((resolve) => {
-            const decodedChunk = decoder.decode(chunk)
-            out += decodedChunk
-            stdout += decodedChunk
-            Deno.stdout.write(chunk)
-            resolve();
-          });
-        },
-      },
-    ))
-
-  process.stderr.pipeTo(new WritableStream(
-    {
-      write(chunk) {
-        return new Promise((resolve) => {
-          const decodedChunk = decoder.decode(chunk)
-          out += decodedChunk
-          stderr += decodedChunk
-          Deno.stderr.write(chunk)
-          resolve();
-        });
-      },
+  process.stdout.pipeTo(new WritableStream({
+    write(chunk) {
+      return new Promise((resolve) => {
+        const decodedChunk = decoder.decode(chunk)
+        out += decodedChunk
+        stdout += decodedChunk
+        Deno.stdout.write(chunk)
+        resolve();
+      });
     },
-  ))
+  }))
+
+  process.stderr.pipeTo(new WritableStream({
+    write(chunk) {
+      return new Promise((resolve) => {
+        const decodedChunk = decoder.decode(chunk)
+        out += decodedChunk
+        stderr += decodedChunk
+        Deno.stderr.write(chunk)
+        resolve();
+      });
+    },
+  }))
 
   const status = await process.status
   const code = status.code
