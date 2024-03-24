@@ -18,8 +18,8 @@ export async function gather() {
 
   fse.ensureDirSync('./meadows')
 
-  const promises = meadows.map((meadow) => {
-    if (meadow.if?.(vars) ?? true) {
+  const promises = meadows.map(async (meadow) => {
+    if (await (meadow.if?.(vars) ?? true)) {
       if (meadow.path) {
         fse.removeSync(fixSourceControlPath(meadow.path))
 
