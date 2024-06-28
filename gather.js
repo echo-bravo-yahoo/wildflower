@@ -3,7 +3,7 @@
 import copy from 'recursive-copy'
 import * as fs from 'node:fs'
 import { parseMeadows } from './common.js'
-import { fixInstalledPath, fixSourceControlPath, logNoSuchFile, buildCopyOptions } from './common.js'
+import { fixInstalledPath, fixSourceControlPath, logNoSuchFile, buildCopyOptions, runDirectly } from './common.js'
 
 export async function gather() {
   const { meadows, vars } = parseMeadows()
@@ -46,7 +46,4 @@ export async function gather() {
   // At some point, we should probably add a separate command to clean up files that have been previously committed, but aren't referenced by the meadows.js anymore. That would require some thinking so we don't remove files we're skipping on this system, but are referenced in meadows.js.
 }
 
-(async () => {
-  if (process.argv[1].split('/').pop() !== 'wildflower.js')
-    await gather()
-})()
+if (runDirectly()) await till()

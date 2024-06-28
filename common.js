@@ -118,3 +118,9 @@ export function parseMeadows(filePath = `./meadows.js`) {
 
   return { meadows: valley.meadows, vars: computeVars(valley?.vars) }
 }
+
+export function runDirectly() {
+  const runLocally = process.argv[1].split('/').pop() === 'wildflower.js'
+  const runGlobally = process.argv[1].split('/').pop() === 'wildflower'
+  return !runLocally && !runGlobally
+}

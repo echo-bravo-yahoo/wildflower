@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import * as fs from 'node:fs'
+import { runDirectly } from './common.js'
 
 export async function till() {
   const example = `
@@ -40,7 +41,4 @@ export async function till() {
   }
 }
 
-(async () => {
-  if (process.argv[1].split('/').pop() !== 'wildflower.js')
-    await till()
-})()
+if (runDirectly()) await till()

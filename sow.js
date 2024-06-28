@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import copy from 'recursive-copy'
-import { fixInstalledPath, fixSourceControlPath, logNoSuchFile, buildCopyOptions, parseMeadows } from './common.js'
+import { fixInstalledPath, fixSourceControlPath, logNoSuchFile, buildCopyOptions, parseMeadows, runDirectly } from './common.js'
 
 export async function sow() {
   const { meadows, vars } = parseMeadows()
@@ -48,7 +48,4 @@ export async function sow() {
   }
 }
 
-(async () => {
-  if (process.argv[1].split('/').pop() !== 'wildflower.js')
-    await sow()
-})()
+if (runDirectly()) await till()
