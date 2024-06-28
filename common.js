@@ -106,23 +106,15 @@ export async function run(
   })
 }
 
-function computeVars(vars = {}) {
-  const computedVars = {}
-  Object.entries(vars).forEach(([key, fn]) => {
-    computedVars[key] = fn()
-  })
-  return computedVars
-}
-
 export async function parseMeadows(filePath = `./meadows.mjs`) {
   global.bash = bash
   global.zsh = zsh
   global.shell = shell
   global.run = run
 
-  const { meadows: valley } = await import(path.resolve(process.cwd(), filePath))
+  const { meadows } = await import(path.resolve(process.cwd(), filePath))
 
-  return { meadows: valley.meadows, vars: computeVars(valley?.vars) }
+  return { meadows }
 }
 
 export function runDirectly() {
