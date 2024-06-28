@@ -1,26 +1,47 @@
-const fse = require('fs-extra')
-const copy = require('recursive-copy')
-const path = require('path')
-const meadows = require('./meadows')
-// The functions are named relative to gathering, not sowing
-// So we'll have to use them named in reverse
-const { fixSrcPath: fixDestPath, fixDestPath: fixSrcPath, logNoSuchFile, buildCopyOptions } = require('./common')
+import copy from 'npm:recursive-copy@2.0.10'
+import { fixInstalledPath, fixSourceControlPath, logNoSuchFile, buildCopyOptions, parseMeadows } from './common.js'
 
-const promises = []
-const copyOptions = {
-  dot: true,
-  overwrite: true,
-  expand: true
+export async function sow() {
+  const { meadows, vars } = parseMeadows()
+
+  if (!meadows) {
+    throw new Error("No meadows found! Make sure you're defining it in your meadows.js. (e.g. `const meadows = [...]`)")
+  }
+
+  const copyOptions = {
+    dot: true,
+    overwrite: true,
+    expand: true
+  }
+
+  try {
+    for (const [index, meadow] of Object.entries(meadows)) {
+      let shouldSowMeadow = await (meadow.if?.(vars) ?? true)
+      if (shouldSowMeadow) {
+
+        // We could, if we wanted to get smart, throw files together in a batch, then trigger them asynchronously.
+        if (meadow.path) {
+          await copy(
+            fixSourceControlPath(meadow.path),
+            fixInstalledPath(meadow.path),
+            buildCopyOptions(copyOptions, meadow)
+          )
+            .then(() => console.log(`Copied '${fixSourceControlPath(meadow.path)}' to '${fixInstalledPath(meadow.path)}'`))
+            .catch(logNoSuchFile)
+        } else if (meadow.run) {
+          await meadow.run(vars)
+        }
+      } else {
+        if (meadow.path) {
+          console.log(`Skipping file '${meadow.path}'.`)
+        } else if (meadow.run) {
+          console.log(`Skipping run step "${meadow.name || `Step ${index}`}".`)
+        }
+      }
+    }
+
+    console.log('Done sowing.')
+  } catch (err) {
+    console.error('Error while sowing:', err)
+  }
 }
-
-meadows.forEach((meadow) => {
-    promises.push(copy(
-      fixSrcPath(meadow.path),
-      fixDestPath(meadow.path),
-      buildCopyOptions(copyOptions, meadow)
-    ).catch(logNoSuchFile))
-})
-
-Promise.all(promises)
-  .then(() => console.log('Done sowing.'))
-  .catch((err) => console.error('Error while sowing:', err))

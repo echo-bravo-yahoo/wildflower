@@ -1,0 +1,8 @@
+#!/bin/sh
+
+# A simple variable injection for wildflower that lets you run it locally (for testing, mainly)
+
+x=$(lsof -p $$ -Fn0 | tail -1);
+export script_root=$(dirname ${x#*n})
+
+$script_root/wildflower "$@"
