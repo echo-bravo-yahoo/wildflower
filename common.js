@@ -1,5 +1,6 @@
 import path from 'node:path'
 import * as fs from 'node:fs'
+import { spawn } from 'node:child_process'
 
 export function buildCopyOptions(baseOptions, meadow) {
   const copyOptions = { ...baseOptions }
@@ -47,60 +48,44 @@ export async function run(
     shell = 'bash',
     // the -i flag causes most of the profiles to be loaded, but causes a hit in performance
     // We probably don't care?
-    flags = ['-i'],
+    // flags = ['-i'],
+    flags = [],
     ...options
   } = {}) {
 
-  const command = new Deno.Command(shell, {
-    args: [...flags, '-c', `${cmd}`],
-    ...options,
+  return new Promise((resolve) => {
+    const command = spawn(
+      shell,
+      [...flags, '-c', `${cmd}`],
+      {
+        stdio: ['pipe', 'pipe', 'pipe'],
+        ...options
+      }
+    );
 
-    stdin: "inherit",
-    stdout: "piped",
-    stderr: "piped",
+    process.stdin.pipe(command.stdin)
 
-    // more options here: https://deno.land/api@v1.41.3?s=Deno.CommandOptions
-  });
+    command.stdout.pipe(process.stdout)
+    command.stderr.pipe(process.stderr)
 
-  const process = command.spawn();
+    let out = ''
+    let stdout = ''
+    let stderr = ''
 
-  const decoder = new TextDecoder("utf-8")
+    command.stdout.on('data', (data) => {
+      out += data
+      stdout += data
+    });
 
-  let out = ''
-  let stdout = ''
-  let stderr = ''
+    command.stderr.on('data', (data) => {
+      out += data
+      stderr += data
+    });
 
-  // https://developer.mozilla.org/en-US/docs/Web/API/WritableStream/WritableStream#examples
-  process.stdout.pipeTo(new WritableStream({
-    write(chunk) {
-      return new Promise((resolve) => {
-        const decodedChunk = decoder.decode(chunk)
-        out += decodedChunk
-        stdout += decodedChunk
-        Deno.stdout.write(chunk)
-        resolve();
-      });
-    },
-  }))
-
-  process.stderr.pipeTo(new WritableStream({
-    write(chunk) {
-      return new Promise((resolve) => {
-        const decodedChunk = decoder.decode(chunk)
-        out += decodedChunk
-        stderr += decodedChunk
-        Deno.stderr.write(chunk)
-        resolve();
-      });
-    },
-  }))
-
-  const status = await process.status
-  const code = status.code
-
-  // console.log({ out, stdout, stderr, code: status .code})
-
-  return { out, stdout, stderr, code }
+    command.on('close', (code) => {
+      resolve({ out, stdout, stderr, code })
+    });
+  })
 }
 
 function computeVars(vars = {}) {
