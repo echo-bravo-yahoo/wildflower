@@ -15,6 +15,55 @@
 3. Pull in your existing `valley` directory using the version control or backup tool you selected [earlier](#first-time-users).
 4. Run `wildflower sow` to distribute your config files.
 
+## Defining meadows
+
+You can currently define two types of meadows: `path`s, which allow you to easily copy and manage files and folders, and `run`s, which allow you to run arbitrary commands.
+
+### `path` meadows
+
+You can copy in either files or folders. In the case of folders, you can filter out the contents using globs.
+
+Example copying files:
+```js
+{ path: `~/Library/Preferences/at.obdev.LaunchBar.plist` },
+{ path: `~/Library/Preferences/at.obdev.LaunchBar.ActionEditor.plist` },
+```
+
+Example copying folders:
+```js
+{
+  path: `~/Library/Application Support/LaunchBar`,
+  filter: [
+    // required to work
+    '**/**',
+
+    // folders need !Folder (for the directory itself) and !Folder/** (for it's files)
+    // if you're using git to store these, you can skip the directory ignore
+    '!**/node_modules',
+    '!**/node_modules/**',
+    
+    // note specific files
+    `!Habits.plist`,
+    `!Recent Documents.plist`
+  ]
+},
+```
+
+### `run` meadows
+
+`run` meadows allow you to run arbitrary javascript (and therefore shell commands) to perform some task. `zsh`, `bash`, `shell`, and `run` functions are provided globally to allow for easy shell access.
+
+```js
+{
+  name: "Basic run",
+  run: () => {
+    return zsh(`
+      echo "Some basic run."
+    `)
+  }
+}
+```
+
 ## Filesystem
 The filesystem you should have after tilling will look something like:
 ```
