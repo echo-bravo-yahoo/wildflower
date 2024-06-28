@@ -1,5 +1,5 @@
 export async function till() {
-  const example = `[ 
+  const example = `[
   // copy in a file
   { path: '~/.zshrc' },
 
@@ -9,12 +9,12 @@ export async function till() {
     filter: [
       // folders need !Folder (for the directory itself) and !Folder/** (for it's files)
       // if you're using git to store these, you can skip the directory ignore
-      
+
       // include all
-      '**/**', 
-      
+      '**/**',
+
       // except this_folder
-      '!**/this_folder', 
+      '!**/this_folder',
       '!**/this_folder/**',
     ]
   },

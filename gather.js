@@ -1,7 +1,7 @@
-import fse from 'npm:fs-extra@9.1.0'
-import copy from 'npm:recursive-copy@2.0.10'
+import copy from 'recursive-copy'
+import * as fs from 'node:fs/promises'
+import { parseMeadows } from './common.js'
 import { fixInstalledPath, fixSourceControlPath, logNoSuchFile, buildCopyOptions } from './common.js'
-import { parseMeadows } from "./common.js";
 
 export async function gather() {
   const { meadows, vars } = parseMeadows()
@@ -16,12 +16,12 @@ export async function gather() {
     }
   }
 
-  fse.ensureDirSync('./meadows')
+  fs.ensureDirSync('./meadows')
 
   const promises = meadows.map(async (meadow) => {
     if (await (meadow.if?.(vars) ?? true)) {
       if (meadow.path) {
-        fse.removeSync(fixSourceControlPath(meadow.path))
+        fs.removeSync(fixSourceControlPath(meadow.path))
 
         return copy(
           fixInstalledPath(meadow.path),

@@ -1,0 +1,15 @@
+{
+  "name": "wildflower",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "1. Install wildflower. (It requires `sudo` access, but just to install to usr/bin/local and give it exec permissions. Go read it. It's three lines.)     ```sh     curl -o- https://raw.githubusercontent.com/MynockSpit/wildflower/master/install.sh | sh     ``` 2. Install Deno (or let wildflower install Deno for you.) 3. Create a new directory where you'll store your dotfiles (e.g. `valley`). 4. Run `wildflower till`. This will create a sample `meadows.js` (e.g. `valley/meadows.js`) to use as a starting-point. 5. Add files you want to gather to the `meadows.js`. 6. Run `wildflower gather` to collect all the files you've specified in `meadows.js`. 7. Store the contents of `./valley` any way you like.",
+  "main": "wildflower.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "recursive-copy": "^2.0.14"
+  }
+}

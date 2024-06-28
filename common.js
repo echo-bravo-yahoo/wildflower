@@ -1,4 +1,4 @@
-import * as path from "https://deno.land/std@0.217.0/path/mod.ts";
+import path from 'node:path'
 
 export function buildCopyOptions(baseOptions, meadow) {
   const copyOptions = { ...baseOptions }
