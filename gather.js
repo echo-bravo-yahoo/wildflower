@@ -16,7 +16,7 @@ export async function gather() {
     }
   }
 
-  fs.ensureDirSync('./meadows')
+  fs.mkdirSync('./meadows', { recursive: true })
 
   const promises = meadows.map(async (meadow) => {
     if (await (meadow.if?.(vars) ?? true)) {
