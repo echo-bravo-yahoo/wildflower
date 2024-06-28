@@ -6,7 +6,7 @@ import { parseMeadows } from './common.js'
 import { fixInstalledPath, fixSourceControlPath, logNoSuchFile, buildCopyOptions, runDirectly } from './common.js'
 
 export async function gather() {
-  const { meadows, vars } = parseMeadows()
+  const { meadows, vars } = await parseMeadows()
 
   const copyOptions = {
     dot: true,
@@ -43,7 +43,7 @@ export async function gather() {
     .then(() => console.log('Done gathering.'))
     .catch((err) => console.error('Error while gathering:', err))
 
-  // At some point, we should probably add a separate command to clean up files that have been previously committed, but aren't referenced by the meadows.js anymore. That would require some thinking so we don't remove files we're skipping on this system, but are referenced in meadows.js.
+  // At some point, we should probably add a separate command to clean up files that have been previously committed, but aren't referenced by the meadows.mjs anymore. That would require some thinking so we don't remove files we're skipping on this system, but are referenced in meadows.mjs.
 }
 
 if (runDirectly()) await till()

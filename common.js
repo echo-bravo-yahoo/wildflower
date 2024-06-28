@@ -114,8 +114,13 @@ function computeVars(vars = {}) {
   return computedVars
 }
 
-export function parseMeadows(filePath = `./meadows.js`) {
-  let valley = eval(`if (true) (${fs.readFileSync(filePath, "utf8")})`)
+export async function parseMeadows(filePath = `./meadows.mjs`) {
+  global.bash = bash
+  global.zsh = zsh
+  global.shell = shell
+  global.run = run
+
+  const { meadows: valley } = await import(path.resolve(process.cwd(), filePath))
 
   return { meadows: valley.meadows, vars: computeVars(valley?.vars) }
 }

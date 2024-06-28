@@ -4,10 +4,10 @@ import copy from 'recursive-copy'
 import { fixInstalledPath, fixSourceControlPath, logNoSuchFile, buildCopyOptions, parseMeadows, runDirectly } from './common.js'
 
 export async function sow() {
-  const { meadows, vars } = parseMeadows()
+  const { meadows, vars } = await parseMeadows()
 
   if (!meadows) {
-    throw new Error("No meadows found! Make sure you're defining it in your meadows.js. (e.g. `({ meadows: [...] })`)")
+    throw new Error("No meadows found! Make sure you're defining it in your meadows.mjs. (e.g. `({ meadows: [...] })`)")
   }
 
   const copyOptions = {
