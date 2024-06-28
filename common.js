@@ -32,31 +32,47 @@ export function fixSourceControlPath(filepath) {
   return path.join(process.cwd(), '/meadows', filepath)
 }
 
-export async function bash(cmd, options = {}) {
-  return run(cmd, { ...options, shell: 'bash' })
+export async function bash(cmd, {
+  // https://www.gnu.org/software/bash/manual/html_node/Bash-Startup-Files.html
+  sources = [`~/.bashrc`],
+  ...options
+} = {}) {
+  return shell(cmd, { shell: 'bash', sources, ...options })
 }
 
-export async function zsh(cmd, options = {}) {
-  return run(cmd, { ...options, shell: 'zsh' })
+export async function zsh(cmd, {
+  // https://zsh.sourceforge.io/Intro/intro_3.html
+  sources = [`~/.zshenv`, `~/.zshrc`],
+  ...options
+} = {}) {
+  return shell(cmd, { shell: 'zsh', sources, ...options })
 }
 
+export async function shell(cmd, {
+  sources = [],
+  shell = 'sh',
+  flags = ['-c'],
+  ...options
+} = {}) {
+  let sourcedFiles = sources.map(file => `. ${file}`).join('\n')
+  return run([shell, ...flags, `${sourcedFiles}\n${cmd}`], options)
+}
+
+/**
+ * 
+ * @param {string[]} commandFlags An array of commands and arguments provided to spawn. The first is the cmd, the rest are provided as flags.
+ * @param {*} options Any option you want to provide to spawn.
+ * @returns 
+ */
 export async function run(
-  cmd,
-  {
-    // maybe do some smarts to determine which shell to use?
-    // also, this breaks hard on windows if you're not in WSL
-    shell = 'bash',
-    // the -i flag causes most of the profiles to be loaded, but causes a hit in performance
-    // We probably don't care?
-    // flags = ['-i'],
-    flags = [],
-    ...options
-  } = {}) {
+  [cmd, ...flags] = [],
+  options
+) {
 
   return new Promise((resolve) => {
     const command = spawn(
-      shell,
-      [...flags, '-c', `${cmd}`],
+      cmd,
+      flags,
       {
         stdio: ['pipe', 'pipe', 'pipe'],
         ...options
