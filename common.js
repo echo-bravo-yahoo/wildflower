@@ -28,6 +28,8 @@ export function fixInstalledPath(filepath) {
 }
 
 export function fixSourceControlPath(filepath) {
+  // transform ~/ into ~~/ for safety
+  if (filepath.length && filepath[0] == `~`) filepath = `~${filepath}`
   return path.join(process.cwd(), '/meadows', filepath)
 }
 

@@ -31,11 +31,12 @@ export async function till() {
 `.trim()
 
   try {
-    fs.statSync("./meadows.js")
-    console.log(`You already have a meadows.js in ${process.cwd()}. Did you mean to run wildflower in a different directory?`)
+    fs.statSync("./valley/meadows.js")
+    console.log(`You already have a meadows.js in ${process.cwd()}/valley. Did you mean to run wildflower in a different directory?`)
   } catch (e) {
-    console.log(`Creating new sample meadows.js file in ${process.cwd()}! Modify it to start adding files to your meadows.`)
-    fs.writeFileSync('./meadows.js', example)
+    console.log(`Creating new sample meadows.js file in ${process.cwd()}/valley! Modify it to start adding files to your meadows.`)
+    fs.mkdirSync('./valley/meadows', { recursive: true })
+    fs.writeFileSync('./valley/meadows.js', example)
   }
 }
 

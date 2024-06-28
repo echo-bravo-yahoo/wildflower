@@ -7,7 +7,7 @@ export async function sow() {
   const { meadows, vars } = parseMeadows()
 
   if (!meadows) {
-    throw new Error("No meadows found! Make sure you're defining it in your meadows.js. (e.g. `const meadows = [...]`)")
+    throw new Error("No meadows found! Make sure you're defining it in your meadows.js. (e.g. `({ meadows: [...] })`)")
   }
 
   const copyOptions = {
