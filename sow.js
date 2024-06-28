@@ -48,4 +48,4 @@ export async function sow() {
   }
 }
 
-if (runDirectly()) await till()
+if (runDirectly()) await sow()
