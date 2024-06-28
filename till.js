@@ -4,7 +4,7 @@ import * as fs from 'node:fs'
 
 export async function till() {
   const example = `
-valley = {
+({
   vars: {
   },
   meadows: [
@@ -27,7 +27,7 @@ valley = {
       ]
     },
   ]
-}
+})
 `.trim()
 
   try {
