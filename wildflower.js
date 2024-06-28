@@ -1,10 +1,10 @@
-import { parseArgs } from "https://deno.land/std@0.219.0/cli/parse_args.ts";
+#!/usr/bin/env node
+
 import { sow } from "./sow.js";
 import { gather } from "./gather.js";
 import { till } from "./till.js";
 
-let args = parseArgs(Deno.args)
-let command = args._[0]
+let command = process.argv[2]
 
 if (command === 'sow') {
   await sow()

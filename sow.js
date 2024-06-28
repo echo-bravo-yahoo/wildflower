@@ -1,4 +1,6 @@
-import copy from 'npm:recursive-copy@2.0.10'
+#!/usr/bin/env node
+
+import copy from 'recursive-copy'
 import { fixInstalledPath, fixSourceControlPath, logNoSuchFile, buildCopyOptions, parseMeadows } from './common.js'
 
 export async function sow() {
@@ -45,3 +47,8 @@ export async function sow() {
     console.error('Error while sowing:', err)
   }
 }
+
+(async () => {
+  if (process.argv[1].split('/').pop() !== 'wildflower.js')
+    await sow()
+})()
