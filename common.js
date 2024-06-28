@@ -112,8 +112,7 @@ function computeVars(vars = {}) {
 }
 
 export function parseMeadows(filePath = `./meadows.js`) {
-  let valley
-  eval((new TextDecoder("utf-8")).decode(fs.readFileSync(filePath)))
+  let valley = eval(`if (true) (${fs.readFileSync(filePath, "utf8")})`)
 
   return { meadows: valley.meadows, vars: computeVars(valley?.vars) }
 }

@@ -49,6 +49,6 @@ export async function sow() {
 }
 
 (async () => {
-  if (process.argv[1].split('/').pop() === 'wildflower.js')
+  if (process.argv[1].split('/').pop() !== 'wildflower.js')
     await sow()
 })()
