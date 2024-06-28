@@ -1,3 +1,5 @@
+#!/usr/bin/env node
+
 import { sow } from "./sow.js";
 import { gather } from "./gather.js";
 import { till } from "./till.js";

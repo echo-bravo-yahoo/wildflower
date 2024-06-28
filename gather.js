@@ -1,3 +1,5 @@
+#!/usr/bin/env node
+
 import copy from 'recursive-copy'
 import * as fs from 'node:fs'
 import { parseMeadows } from './common.js'
@@ -43,3 +45,8 @@ export async function gather() {
 
   // At some point, we should probably clean up files that have been previously committed, but aren't referenced by the meadows.js anymore. That would require some thinking so we don't remove files we're skipping on this system, but are referenced in meadows.js.
 }
+
+(async () => {
+  if (process.argv[1].split('/').pop() === 'wildflower.js')
+    await gather()
+})()

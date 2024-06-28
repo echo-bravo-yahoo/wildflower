@@ -1,3 +1,5 @@
+#!/usr/bin/env node
+
 import * as fs from 'node:fs'
 
 export async function till() {
@@ -36,3 +38,8 @@ valley = {
     fs.writeFileSync('./meadows.js', example)
   }
 }
+
+(async () => {
+  if (process.argv[1].split('/').pop() === 'wildflower.js')
+    await till()
+})()
