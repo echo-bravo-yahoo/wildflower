@@ -1,5 +1,5 @@
 import copy from 'recursive-copy'
-import * as fs from 'node:fs/promises'
+import * as fs from 'node:fs'
 import { parseMeadows } from './common.js'
 import { fixInstalledPath, fixSourceControlPath, logNoSuchFile, buildCopyOptions } from './common.js'
 
@@ -21,8 +21,6 @@ export async function gather() {
   const promises = meadows.map(async (meadow) => {
     if (await (meadow.if?.(vars) ?? true)) {
       if (meadow.path) {
-        fs.removeSync(fixSourceControlPath(meadow.path))
-
         return copy(
           fixInstalledPath(meadow.path),
           fixSourceControlPath(meadow.path),

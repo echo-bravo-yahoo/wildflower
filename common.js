@@ -1,4 +1,5 @@
 import path from 'node:path'
+import * as fs from 'node:fs'
 
 export function buildCopyOptions(baseOptions, meadow) {
   const copyOptions = { ...baseOptions }
@@ -21,13 +22,13 @@ export const logNoSuchFile = (error) => {
 
 export function fixInstalledPath(filepath) {
   if (filepath[0] === '~') {
-    filepath = path.join(Deno.env.get('HOME'), filepath.slice(1))
+    filepath = path.join(process.env['HOME'], filepath.slice(1))
   }
   return filepath
 }
 
 export function fixSourceControlPath(filepath) {
-  return path.join(Deno.cwd(), '/meadows', filepath)
+  return path.join(process.cwd(), '/meadows', filepath)
 }
 
 export async function bash(cmd, options = {}) {
@@ -112,7 +113,7 @@ function computeVars(vars = {}) {
 
 export function parseMeadows(filePath = `./meadows.js`) {
   let valley
-  eval((new TextDecoder("utf-8")).decode(Deno.readFileSync(filePath)))
+  eval((new TextDecoder("utf-8")).decode(fs.readFileSync(filePath)))
 
   return { meadows: valley.meadows, vars: computeVars(valley?.vars) }
 }
