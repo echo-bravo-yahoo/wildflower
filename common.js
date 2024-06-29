@@ -52,11 +52,12 @@ export async function zsh(cmd, {
 
 export async function shell(cmd, {
   sources = [],
+  sourceSuffix = ' >/dev/null',
   shell = 'sh',
   flags = ['-c'],
   ...options
 } = {}) {
-  let sourcedFiles = sources.map(file => `. ${file}`).join('\n')
+  let sourcedFiles = sources.map(file => `. ${file}${sourceSuffix}`).join('\n')
   return run([shell, ...flags, `${sourcedFiles}\n${cmd}`], options)
 }
 
