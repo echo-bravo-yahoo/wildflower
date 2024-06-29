@@ -76,8 +76,9 @@ Example copying folders:
 ```
 
 ## Todo:
-- Create an "update" or "install" command or something to simplify installation and update
-- Add ability for wildflower to run commands
-- Add some kind of ordering/dependency mechanism (wait for 'x' before doing 'y'.)
+- Add ability for wildflower to run commands 
+  - Note that the `sow` step current runs commands, but the `gather` step does not.
+- Add some kind of ordering/dependency mechanism (wait for 'x' before doing 'y'.) 
+  - Note that the `sow` step runs in sequence, but the `gather` step runs in parallel.
 - Improve runtime perf (parallelize async fs operations)
 - Add runtime perf / debugging utilities
