@@ -1,45 +1,50 @@
 #!/usr/bin/env node
 
 import * as fs from 'node:fs'
+import { runDirectly } from './common.js'
 
 export async function till() {
   const example = `
-({
-  vars: {
+const os = await import("os")
+
+let linux = os.platform === 'linux'
+
+export const meadows = [
+  // copy in a file
+  { path: '~/.zshrc' },
+
+  // copy in a file, but only on linux
+  { 
+    if: () => linux
+    path: '~/.zshrc' 
   },
-  meadows: [
-    // copy in a file
-    { path: '~/.zshrc' },
 
-    // copy in a folder, but exclude subfolders
-    {
-      path: '~/some/folder',
-      filter: [
-        // folders need !Folder (for the directory itself) and !Folder/** (for it's files)
-        // if you're using git to store these, you can skip the directory ignore
+  // copy in a folder, but exclude subfolders
+  {
+    path: '~/some/folder',
+    filter: [
+      // folders need !Folder (for the directory itself) and !Folder/** (for it's files)
+      // if you're using git to store these, you can skip the directory ignore
 
-        // include all
-        '**/**',
+      // include all
+      '**/**',
 
-        // except this_folder
-        '!**/this_folder',
-        '!**/this_folder/**',
-      ]
-    },
-  ]
-})
+      // except this_folder
+      '!**/this_folder',
+      '!**/this_folder/**',
+    ]
+  },
+])
 `.trim()
 
   try {
-    fs.statSync("./meadows.js")
-    console.log(`You already have a meadows.js in ${process.cwd()}. Did you mean to run wildflower in a different directory?`)
+    fs.statSync("./valley/meadows.mjs")
+    console.log(`You already have a meadows.mjs in ${process.cwd()}/valley. Did you mean to run wildflower in a different directory?`)
   } catch (e) {
-    console.log(`Creating new sample meadows.js file in ${process.cwd()}! Modify it to start adding files to your meadows.`)
-    fs.writeFileSync('./meadows.js', example)
+    console.log(`Creating new sample meadows.mjs file in ${process.cwd()}/valley! Modify it to start adding files to your meadows.`)
+    fs.mkdirSync('./valley/meadows', { recursive: true })
+    fs.writeFileSync('./valley/meadows.mjs', example)
   }
 }
 
-(async () => {
-  if (process.argv[1].split('/').pop() !== 'wildflower.js')
-    await till()
-})()
+if (runDirectly()) await till()

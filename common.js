@@ -1,5 +1,6 @@
 import path from 'node:path'
 import * as fs from 'node:fs'
+import { spawn } from 'node:child_process'
 
 export function buildCopyOptions(baseOptions, meadow) {
   const copyOptions = { ...baseOptions }
@@ -28,91 +29,97 @@ export function fixInstalledPath(filepath) {
 }
 
 export function fixSourceControlPath(filepath) {
+  // transform ~/ into ~~/ for safety
+  if (filepath.length && filepath[0] == `~`) filepath = `~${filepath}`
   return path.join(process.cwd(), '/meadows', filepath)
 }
 
-export async function bash(cmd, options = {}) {
-  return run(cmd, { ...options, shell: 'bash' })
+export async function bash(cmd, {
+  // https://www.gnu.org/software/bash/manual/html_node/Bash-Startup-Files.html
+  sources = [`~/.bashrc`],
+  ...options
+} = {}) {
+  return shell(cmd, { shell: 'bash', sources, ...options })
 }
 
-export async function zsh(cmd, options = {}) {
-  return run(cmd, { ...options, shell: 'zsh' })
+export async function zsh(cmd, {
+  // https://zsh.sourceforge.io/Intro/intro_3.html
+  sources = [`~/.zshenv`, `~/.zshrc`],
+  ...options
+} = {}) {
+  return shell(cmd, { shell: 'zsh', sources, ...options })
 }
 
+export async function shell(cmd, {
+  sources = [],
+  sourceSuffix = ' >/dev/null',
+  shell = 'sh',
+  flags = ['-c'],
+  ...options
+} = {}) {
+  let sourcedFiles = sources.map(file => `. ${file}${sourceSuffix}`).join('\n')
+  return run([shell, ...flags, `${sourcedFiles}\n${cmd}`], options)
+}
+
+/**
+ * 
+ * @param {string[]} commandFlags An array of commands and arguments provided to spawn. The first is the cmd, the rest are provided as flags.
+ * @param {*} options Any option you want to provide to spawn.
+ * @returns 
+ */
 export async function run(
-  cmd,
-  {
-    // maybe do some smarts to determine which shell to use?
-    // also, this breaks hard on windows if you're not in WSL
-    shell = 'bash',
-    // the -i flag causes most of the profiles to be loaded, but causes a hit in performance
-    // We probably don't care?
-    flags = ['-i'],
-    ...options
-  } = {}) {
+  [cmd, ...flags] = [],
+  options
+) {
 
-  const command = new Deno.Command(shell, {
-    args: [...flags, '-c', `${cmd}`],
-    ...options,
+  return new Promise((resolve) => {
+    const command = spawn(
+      cmd,
+      flags,
+      {
+        stdio: ['pipe', 'pipe', 'pipe'],
+        ...options
+      }
+    );
 
-    stdin: "inherit",
-    stdout: "piped",
-    stderr: "piped",
+    process.stdin.pipe(command.stdin)
 
-    // more options here: https://deno.land/api@v1.41.3?s=Deno.CommandOptions
-  });
+    command.stdout.pipe(process.stdout)
+    command.stderr.pipe(process.stderr)
 
-  const process = command.spawn();
+    let out = ''
+    let stdout = ''
+    let stderr = ''
 
-  const decoder = new TextDecoder("utf-8")
+    command.stdout.on('data', (data) => {
+      out += data
+      stdout += data
+    });
 
-  let out = ''
-  let stdout = ''
-  let stderr = ''
+    command.stderr.on('data', (data) => {
+      out += data
+      stderr += data
+    });
 
-  // https://developer.mozilla.org/en-US/docs/Web/API/WritableStream/WritableStream#examples
-  process.stdout.pipeTo(new WritableStream({
-    write(chunk) {
-      return new Promise((resolve) => {
-        const decodedChunk = decoder.decode(chunk)
-        out += decodedChunk
-        stdout += decodedChunk
-        Deno.stdout.write(chunk)
-        resolve();
-      });
-    },
-  }))
-
-  process.stderr.pipeTo(new WritableStream({
-    write(chunk) {
-      return new Promise((resolve) => {
-        const decodedChunk = decoder.decode(chunk)
-        out += decodedChunk
-        stderr += decodedChunk
-        Deno.stderr.write(chunk)
-        resolve();
-      });
-    },
-  }))
-
-  const status = await process.status
-  const code = status.code
-
-  // console.log({ out, stdout, stderr, code: status .code})
-
-  return { out, stdout, stderr, code }
-}
-
-function computeVars(vars = {}) {
-  const computedVars = {}
-  Object.entries(vars).forEach(([key, fn]) => {
-    computedVars[key] = fn()
+    command.on('close', (code) => {
+      resolve({ out, stdout, stderr, code })
+    });
   })
-  return computedVars
 }
 
-export function parseMeadows(filePath = `./meadows.js`) {
-  let valley = eval(`if (true) (${fs.readFileSync(filePath, "utf8")})`)
+export async function parseMeadows(filePath = `./meadows.mjs`) {
+  global.bash = bash
+  global.zsh = zsh
+  global.shell = shell
+  global.run = run
 
-  return { meadows: valley.meadows, vars: computeVars(valley?.vars) }
+  const { meadows } = await import(path.resolve(process.cwd(), filePath))
+
+  return { meadows }
+}
+
+export function runDirectly() {
+  const runLocally = process.argv[1].split('/').pop() === 'wildflower.js'
+  const runGlobally = process.argv[1].split('/').pop() === 'wildflower'
+  return !runLocally && !runGlobally
 }
