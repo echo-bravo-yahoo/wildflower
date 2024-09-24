@@ -5,7 +5,7 @@ install_wildflower() {
     echo "wildflower already installed. Nothing to do. Exiting…"
   } || {
     echo "Installing wildflower…"
-    npm i -g github:echo-bravo-yahoo/wildflower#2.0.0 || {
+    npm i -g github:echo-bravo-yahoo/wildflower || {
       echo "Failed to install wildflower. Exiting!"
       exit 1
     }
@@ -23,12 +23,12 @@ fi
 
 NODE_VERSION=$(node --version)
 
-if [[ $NVM_VERSION == "" && $NODE_VERSION != "" ]]; then 
+if [ "$NVM_VERSION" = "" ] && [ "$NODE_VERSION" != "" ]; then 
 	echo "Detected node without nvm. Installing wildflower globally. Good luck!"
 
   install_wildflower
 else
-	if [[ $NVM_VERSION == "" ]]; then
+	if [ "$NVM_VERSION" = "" ]; then
 		echo "Installing nvm…"
 
     curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
@@ -37,7 +37,7 @@ else
 		echo "nvm already installed!"
 	fi
 
-	if [[ "$NODE_VERSION" == "" ]]; then
+	if [ "$NODE_VERSION" = "" ]; then
 		echo "Installing node…"
 
     nvm install 20
@@ -53,6 +53,6 @@ else
 NVM_DIR="$([ -z "${XDG_CONFIG_HOME-}" ] && printf %s "${HOME}/.nvm" || printf %s "${XDG_CONFIG_HOME}/nvm")"
 . "$NVM_DIR/nvm.sh"
 
-nvm exec '"$(node --version)"' wildflower' | sudo tee /usr/local/bin/wildflower > /dev/null
+nvm exec '"$(node --version)"' wildflower "$@"' | sudo tee /usr/local/bin/wildflower > /dev/null
   sudo chmod +x /usr/local/bin/wildflower
 fi
