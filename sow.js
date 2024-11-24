@@ -4,7 +4,7 @@ import copy from 'recursive-copy'
 import { fixInstalledPath, fixSourceControlPath, logNoSuchFile, buildCopyOptions, parseMeadows, runDirectly } from './common.js'
 
 export async function sow() {
-  const { meadows, vars } = await parseMeadows()
+  const { meadows } = await parseMeadows()
 
   if (!meadows) {
     throw new Error("No meadows found! Make sure you're defining it in your meadows.mjs. (e.g. `({ meadows: [...] })`)")
@@ -18,8 +18,8 @@ export async function sow() {
 
   try {
     for (const [index, meadow] of Object.entries(meadows)) {
-      let shouldSowMeadow = await (meadow.if?.(vars) ?? true)
-      if (shouldSowMeadow) {
+      let shouldSow = await (meadow.if?.() ?? true)
+      if (shouldSow) {
 
         // We could, if we wanted to get smart, throw files together in a batch, then trigger them asynchronously.
         if (meadow.path) {
@@ -31,13 +31,15 @@ export async function sow() {
             .then(() => console.log(`Copied '${fixSourceControlPath(meadow.path)}' to '${fixInstalledPath(meadow.path)}'`))
             .catch(logNoSuchFile)
         } else if (meadow.run) {
-          await meadow.run(vars)
+          await meadow.run()
         }
       } else {
         if (meadow.path) {
-          console.log(`Skipping file '${meadow.path}'.`)
-        } else if (meadow.run) {
-          console.log(`Skipping run step "${meadow.name || `Step ${index}`}".`)
+          console.log(`Skipping file "${meadow.path}" (step # ${index}).`)
+        } else if (meadow.name) {
+          console.log(`Skipping step "${meadow.name}" (step # ${index}).`)
+        } else {
+          console.log(`Skipping step # ${index}.`)
         }
       }
     }
