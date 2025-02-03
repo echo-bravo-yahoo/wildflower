@@ -1,6 +1,6 @@
 {
   "name": "wildflower",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "type": "module",
   "description": "an unopinionated tool for managing your dotflowers",
   "main": "wildflower.js",
