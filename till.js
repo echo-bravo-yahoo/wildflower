@@ -1,7 +1,11 @@
 #!/usr/bin/env node
 
 import * as fs from 'node:fs'
+import path from 'node:path'
+
 import { runDirectly } from './common.js'
+
+const __dirname = import.meta.dirname;
 
 export async function till() {
   const example = `
@@ -14,9 +18,9 @@ export const meadows = [
   { path: '~/.zshrc' },
 
   // copy in a file, but only on linux
-  { 
+  {
     if: () => linux
-    path: '~/.zshrc' 
+    path: '~/.zshrc'
   },
 
   // copy in a folder, but exclude subfolders
@@ -38,12 +42,12 @@ export const meadows = [
 `.trim()
 
   try {
-    fs.statSync("./valley/meadows.mjs")
-    console.log(`You already have a meadows.mjs in ${process.cwd()}/valley. Did you mean to run wildflower in a different directory?`)
+    fs.statSync(path.join(__dirname, "/valley/meadows.mjs"))
+    console.log(`You already have a meadows.mjs in ${__dirname}/valley. Did you mean to run wildflower in a different directory?`)
   } catch (e) {
-    console.log(`Creating new sample meadows.mjs file in ${process.cwd()}/valley! Modify it to start adding files to your meadows.`)
-    fs.mkdirSync('./valley/meadows', { recursive: true })
-    fs.writeFileSync('./valley/meadows.mjs', example)
+    console.log(`Creating new sample meadows.mjs file in ${__dirname}/valley! Modify it to start adding files to your meadows.`)
+    fs.mkdirSync(path.join(__dirname, '/valley/meadows'), { recursive: true })
+    fs.writeFileSync(path.join(__dirname, '/valley/meadows.mjs'), example)
   }
 }
 

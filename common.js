@@ -1,6 +1,7 @@
 import path from 'node:path'
-import * as fs from 'node:fs'
 import { spawn } from 'node:child_process'
+
+const __dirname = import.meta.dirname;
 
 export function buildCopyOptions(baseOptions, meadow) {
   const copyOptions = { ...baseOptions }
@@ -31,7 +32,7 @@ export function fixInstalledPath(filepath) {
 export function fixSourceControlPath(filepath) {
   // transform ~/ into ~~/ for safety
   if (filepath.length && filepath[0] == `~`) filepath = `~${filepath}`
-  return path.join(process.cwd(), '/meadows', filepath)
+  return path.join(__dirname, "/valley/meadows", filepath)
 }
 
 export async function bash(cmd, {
@@ -113,8 +114,7 @@ export async function parseMeadows(filePath = `./meadows.mjs`) {
   global.shell = shell
   global.run = run
 
-  const { meadows } = await import(path.resolve(process.cwd(), filePath))
-
+  const { meadows } = await import(path.join(__dirname, "/valley/", filePath))
   return { meadows }
 }
 
