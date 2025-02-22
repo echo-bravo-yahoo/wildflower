@@ -1,7 +1,52 @@
 import path from 'node:path'
+import fs from 'node:fs'
 import { spawn } from 'node:child_process'
 
 const __dirname = import.meta.dirname;
+
+let valleyDir = ''
+/**
+ * A function that attempts to figure out the valley directory. It first searches VALLEY_PATH, then nearby directories, then when all that fails, it checks cwd. We store the result in a variable so we only have to do it once per run.
+ * @returns 
+ */
+export function getValleyDir() {
+
+  let searchIn = [
+    process.env.VALLEY_PATH ?? '', // defined like VALLEY_PATH=/path/to/valley
+    path.join(__dirname, "valley"), // inside wildflower
+    path.join(path.dirname(__dirname), "valley"), // next to wildflower
+  ]
+
+  // cache so we're only stat'ing once
+  if (valleyDir) {
+    return valleyDir
+  } else {
+
+    let maybeValleyDir = searchIn.find(possibleDir => {
+      return fs.statSync(possibleDir, { throwIfNoEntry: false })
+    })
+
+    // otherwise, check cwd
+    if (!maybeValleyDir) {
+      maybeValleyDir = process.cwd()
+      while (!fs.statSync(path.join(maybeValleyDir, 'meadows.mjs'), { throwIfNoEntry: false })) {
+        let nextDir = path.dirname(maybeValleyDir)
+        if (maybeValleyDir !== nextDir) {
+          maybeValleyDir = nextDir
+        }
+      }
+    }
+
+    valleyDir = maybeValleyDir
+
+    if (!valleyDir) {
+      console.error("Error: No valley found. Make sure the valley is on your current working path or configure the VALLEY_PATH environment variable.")
+      process.exit(1)
+    }
+
+    return valleyDir
+  }
+}
 
 export function buildCopyOptions(baseOptions, meadow) {
   const copyOptions = { ...baseOptions }
@@ -32,7 +77,7 @@ export function fixInstalledPath(filepath) {
 export function fixSourceControlPath(filepath) {
   // transform ~/ into ~~/ for safety
   if (filepath.length && filepath[0] == `~`) filepath = `~${filepath}`
-  return path.join(__dirname, "/valley/meadows", filepath)
+  return path.join(getValleyDir(), "/meadows", filepath)
 }
 
 export async function bash(cmd, {
@@ -108,13 +153,13 @@ export async function run(
   })
 }
 
-export async function parseMeadows(filePath = `./meadows.mjs`) {
+export async function parseMeadows() {
   global.bash = bash
   global.zsh = zsh
   global.shell = shell
   global.run = run
 
-  const { meadows } = await import(path.join(__dirname, "/valley/", filePath))
+  const { meadows } = await import(path.join(getValleyDir(), './meadows.mjs'))
   return { meadows }
 }
 

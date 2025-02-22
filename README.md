@@ -15,7 +15,7 @@
 3. Pull in your existing `valley` directory using the version control or backup tool you selected [earlier](#first-time-users).
 4. Run `wildflower sow` to distribute your config files.
 
-## Filesystem
+## Valleys
 The filesystem you should have after tilling will look something like:
 ```
 .../
@@ -25,6 +25,8 @@ The filesystem you should have after tilling will look something like:
       ~~/        # this is the only special / mutated directory name
     .git         # if you want to version control with git, make `valley` a repository
 ```
+
+A valley (the folder where your meadows are) can be located in one of three places: in or next to the wildflower source repo (if you cloned it from github), defined by the VALLEY_PATH variable (e.g. `VALLEY_PATH=~/valley`), or in the current working path of the terminal you're running wildflower commands from.
 
 ## Writing `meadows.mjs`
 
