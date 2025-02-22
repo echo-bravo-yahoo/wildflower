@@ -37,10 +37,12 @@ else
 		echo "nvm already installed!"
 	fi
 
-	if [ "$NODE_VERSION" = "" ]; then
+  NODE_VERSION=$(nvm current)
+
+	if [ "$NODE_VERSION" = "none" ] || "$NODE_VERSION" = "system" ; then
 		echo "Installing node…"
 
-    nvm install 20
+    nvm install node
   else
 		echo "node already installed!"
 	fi
