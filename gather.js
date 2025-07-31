@@ -22,8 +22,10 @@ export async function gather() {
 
   try {
     for (const [index, meadow] of Object.entries(meadows)) {
-      // right now, we don't do any running, so make sure we have a path
-      let shouldGather = await (meadow.if?.() && meadow.path)
+      // make sure we have a path
+      let shouldGather = typeof meadow.if === "function"
+        ? (await meadow.if?.()) && meadow.path
+        : meadow.path
       if (shouldGather) {
         if (meadow.path) {
           await copy(
@@ -36,9 +38,9 @@ export async function gather() {
         }
       } else {
         if (meadow.path) {
-          console.log(`Skipping file "${meadow.path}" (step # ${index}).`)
+          console.log(`Skipping file "${meadow.path}" (step #${index}).`)
         } else if (meadow.name) {
-          console.log(`Skipping step "${meadow.name}" (step # ${index}).`)
+          console.log(`Skipping step "${meadow.name}" (step #${index}).`)
         } else {
           console.log(`Skipping step # ${index}.`)
         }
