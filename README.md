@@ -32,9 +32,9 @@ A valley (the folder where your meadows are) can be located in one of three plac
 
 You can currently define two types of meadows: `path`s, which allow you to easily copy and manage files and folders, and `run`s, which allow you to run arbitrary commands.
 
-### `path` meadows
+### Copying files 
 
-You can copy in either files or folders. In the case of folders, you can filter out the contents using globs.
+You can copy either files or folders by setting a `path` property that defines where on disk to find the files to copy. In the case of folders, you can filter out the contents using globs.
 
 Example copying files:
 ```js
@@ -62,17 +62,33 @@ Example copying folders:
 },
 ```
 
-### `run` meadows
+### Running functions
 
-`run` meadows allow you to run arbitrary javascript (and therefore shell commands) to perform some task. `zsh`, `bash`, `shell`, and `run` functions are provided globally to allow for easy shell access.
+You can run arbitrary javascript (and therefore shell commands) to perform some task using the `gather` and `sow` properties, which run on their respective wildflower commands. 
+
+`zsh`, `bash`, `shell`, and `run` functions are provided globally to allow for easy shell access.
 
 ```js
 {
   name: "Basic run",
-  run: () => {
+  sow: () => {
     return zsh(`
-      echo "Some basic run."
+      echo "This echo gets run on 'wildflower sow'."
     `)
+  },
+  gather: () => {
+    console.log("This log gets run on 'wildflower gather'.")
+  }
+}
+```
+
+When combined with paths, both `gather` and `sow` recieve the paths of the final copied files.
+
+```js
+{
+  path: '/path/to/folder'
+  gather: (arrayOfFilesWeCopied) => {
+    console.log(arrayOfFilesWeCopied)
   }
 }
 ```

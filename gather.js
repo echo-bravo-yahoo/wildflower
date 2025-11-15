@@ -2,7 +2,7 @@
 
 import copy from 'recursive-copy'
 import * as fs from 'node:fs'
-import { parseMeadows } from './common.js'
+import { parseMeadows, meadowLabel } from './common.js'
 import { fixInstalledPath, fixSourceControlPath, logNoSuchFile, buildCopyOptions, runDirectly } from './common.js'
 
 export async function gather() {
@@ -27,23 +27,35 @@ export async function gather() {
         ? (await meadow.if?.()) && meadow.path
         : meadow.path
       if (shouldGather) {
+        let copiedFiles
+        
         if (meadow.path) {
-          await copy(
-            fixInstalledPath(meadow.path),
-            fixSourceControlPath(meadow.path),
-            buildCopyOptions(copyOptions, meadow)
-          )
-            .then(() => console.log(`Copied '${fixInstalledPath(meadow.path)}' to '${fixSourceControlPath(meadow.path)}'`))
-            .catch(logNoSuchFile)
+          try {
+            let operations = await copy(
+              fixInstalledPath(meadow.path),
+              fixSourceControlPath(meadow.path),
+              buildCopyOptions(copyOptions, meadow)
+            )
+            
+            // possibly there's a bug where the operation doesn't work
+            copiedFiles = operations.map(operation => operation.dest)
+
+            console.log(`Copied '${fixInstalledPath(meadow.path)}' to '${fixSourceControlPath(meadow.path)}'`)
+          } catch (e) {
+            logNoSuchFile(e)
+          }
+        }
+
+        if (meadow.gather) {
+          try {
+            await meadow.gather({ copiedFiles })
+          } catch (error) {
+            console.error(`ERROR: Gather failed for ${meadowLabel(meadow, index)}!`)
+            console.error(error)
+          }
         }
       } else {
-        if (meadow.path) {
-          console.log(`Skipping file "${meadow.path}" (step #${index}).`)
-        } else if (meadow.name) {
-          console.log(`Skipping step "${meadow.name}" (step #${index}).`)
-        } else {
-          console.log(`Skipping step # ${index}.`)
-        }
+        console.log(`Skipping ${meadowLabel(meadow, index)}.`)
       }
     }
     console.log('Done gathering.')
