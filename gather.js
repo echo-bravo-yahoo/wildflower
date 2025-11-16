@@ -22,13 +22,11 @@ export async function gather() {
 
   try {
     for (const [index, meadow] of Object.entries(meadows)) {
-      // make sure we have a path
-      let shouldGather = typeof meadow.if === "function"
-        ? (await meadow.if?.()) && meadow.path
-        : meadow.path
-      if (shouldGather) {
+      let shouldGather = meadow.if ? await meadow.if?.() : true
+      let capableOfGather = Boolean(meadow.path) || Boolean(meadow.gather)
+      if (shouldGather && capableOfGather) {
         let copiedFiles
-        
+
         if (meadow.path) {
           try {
             let operations = await copy(
@@ -55,7 +53,11 @@ export async function gather() {
           }
         }
       } else {
-        console.log(`Skipping ${meadowLabel(meadow, index)}.`)
+        if (!capableOfGather) {
+          console.log(`Skipping ${meadowLabel(meadow, index)} b/c this meadow isn't capable of it.`)
+        } else {
+          console.log(`Skipping ${meadowLabel(meadow, index)} b/c the condition didn't pass.`)
+        }
       }
     }
     console.log('Done gathering.')

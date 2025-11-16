@@ -18,8 +18,9 @@ export async function sow() {
 
   try {
     for (const [index, meadow] of Object.entries(meadows)) {
-      let shouldSow = await (meadow.if?.() ?? true)
-      if (shouldSow) {
+      let shouldSow = meadow.if ? await meadow.if?.() : true
+      let capableOfSow = Boolean(meadow.path) || Boolean(meadow.sow)
+      if (shouldSow && capableOfSow) {
         let copiedFiles
 
         // We could, if we wanted to get smart, throw files together in a batch, then trigger them asynchronously.
@@ -49,7 +50,11 @@ export async function sow() {
           }
         }
       } else {
-        console.log(`Skipping ${meadowLabel(meadow, index)}.`)
+        if (!capableOfSow) {
+          console.log(`Skipping ${meadowLabel(meadow, index)} b/c this meadow isn't capable of it.`)
+        } else {
+          console.log(`Skipping ${meadowLabel(meadow, index)} b/c the condition didn't pass.`)
+        }
       }
     }
 
