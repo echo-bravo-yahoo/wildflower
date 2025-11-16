@@ -2,7 +2,7 @@
 
 import copy from 'recursive-copy'
 import * as fs from 'node:fs'
-import { parseMeadows, meadowLabel } from './common.js'
+import { parseMeadows, meadowLabel, curableCopy } from './common.js'
 import { fixInstalledPath, fixSourceControlPath, logNoSuchFile, buildCopyOptions, runDirectly } from './common.js'
 
 export async function gather() {
@@ -29,7 +29,7 @@ export async function gather() {
 
         if (meadow.path) {
           try {
-            let operations = await copy(
+            let operations = await (meadow.curable ? curableCopy : copy)(
               fixInstalledPath(meadow.path),
               fixSourceControlPath(meadow.path),
               buildCopyOptions(copyOptions, meadow)

@@ -1,6 +1,7 @@
 import path from 'node:path'
-import fs from 'node:fs'
 import { spawn } from 'node:child_process'
+import fs from 'fs'
+import { cp, readdir, stat } from 'node:fs/promises';
 
 const __dirname = import.meta.dirname;
 
@@ -67,7 +68,7 @@ export const logNoSuchFile = (error) => {
   }
 }
 
-export function meadowLabel(meadow) {
+export function meadowLabel(meadow, index) {
   if (meadow.path) {
     return `"${meadow.path}" (step #${index})`
   } else if (meadow.name) {
@@ -86,8 +87,47 @@ export function fixInstalledPath(filepath) {
 
 export function fixSourceControlPath(filepath) {
   // transform ~/ into ~~/ for safety
+  if (filepath.length && filepath.startsWith(process.env['HOME'])) filepath = "~" + filepath.slice(process.env['HOME'].length)
   if (filepath.length && filepath[0] == `~`) filepath = `~${filepath}`
   return path.join(getValleyDir(), "/meadows", filepath)
+}
+
+export async function curableCopy(
+  fromPath, 
+  toPath
+) {
+  let files = await readdir(fromPath, {
+    recursive: true,
+    withFileTypes: true
+  })
+
+  let operations = []
+
+  for (let file of files) {
+    if (file.isFile() && !['.DS_Store', 'Thumbs.db'].includes(file.name)) {
+      let realFromPath = `${file.parentPath}/${file.name}`
+      let realToPath = toPath + realFromPath.slice(fromPath.length)
+      let operation = { src: realFromPath, dest: realToPath }
+      try {
+        await cp(realFromPath, realToPath)
+        operation.stats = await stat(realToPath)
+      } catch (cpError) {
+        // at this point, we can bail out to the user to cure, or we can attempt some basic cures:
+        // not portable, but apparently neither is node, so this is better than nothing for now
+        try {
+          await bash(`sudo mkdir -p $(dirname '${realToPath}'); sudo cp '${realFromPath}' '${realToPath}'`)
+          operation.stats = await stat(realToPath)
+        } catch (cureError) {
+          console.error('Node copy failed, and attempting to fix it also failed.')
+          console.error(cpError)
+          console.error(cureError)
+        }
+      }
+      operations.push(operation)
+    }
+  }
+
+  return operations
 }
 
 export async function bash(cmd, {
