@@ -1,7 +1,7 @@
 import path from 'node:path'
 import { spawn } from 'node:child_process'
 import fs from 'fs'
-import { cp, readdir, stat } from 'node:fs/promises';
+import { cp, readdir, stat, statfs } from 'node:fs/promises';
 import { isNotJunk } from 'junk'
 
 const __dirname = import.meta.dirname;
@@ -100,10 +100,20 @@ export async function curableCopy(
     junk = false
   } = {}
 ) {
-  let files = await readdir(fromPath, {
-    recursive: true,
-    withFileTypes: true
-  })
+  let files 
+  let statFromPath = await stat(fromPath)
+  if (statFromPath.isDirectory()) {
+    files = await readdir(fromPath, {
+      recursive: true,
+      withFileTypes: true
+    })
+  } else {
+    files = [{
+      isFile() { return statFromPath.isFile() },
+      parentPath: path.dirname(fromPath),
+      name: path.basename(fromPath)
+    }]
+  }
 
   let operations = []
 
