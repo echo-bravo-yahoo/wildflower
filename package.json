@@ -13,6 +13,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "junk": "^4.0.1",
     "recursive-copy": "^2.0.14"
   }
 }

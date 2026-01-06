@@ -1,6 +1,8 @@
 import path from 'node:path'
-import fs from 'node:fs'
 import { spawn } from 'node:child_process'
+import fs from 'fs'
+import { cp, readdir, stat, statfs } from 'node:fs/promises';
+import { isNotJunk } from 'junk'
 
 const __dirname = import.meta.dirname;
 
@@ -67,7 +69,7 @@ export const logNoSuchFile = (error) => {
   }
 }
 
-export function meadowLabel(meadow) {
+export function meadowLabel(meadow, index) {
   if (meadow.path) {
     return `"${meadow.path}" (step #${index})`
   } else if (meadow.name) {
@@ -75,7 +77,7 @@ export function meadowLabel(meadow) {
   } else {
     return `# ${index}`
   }
-} 
+}
 
 export function fixInstalledPath(filepath) {
   if (filepath[0] === '~') {
@@ -86,8 +88,62 @@ export function fixInstalledPath(filepath) {
 
 export function fixSourceControlPath(filepath) {
   // transform ~/ into ~~/ for safety
+  if (filepath.length && filepath.startsWith(process.env['HOME'])) filepath = "~" + filepath.slice(process.env['HOME'].length)
   if (filepath.length && filepath[0] == `~`) filepath = `~${filepath}`
   return path.join(getValleyDir(), "/meadows", filepath)
+}
+
+export async function curableCopy(
+  fromPath,
+  toPath,
+  {
+    junk = false
+  } = {}
+) {
+  let files 
+  let statFromPath = await stat(fromPath)
+  if (statFromPath.isDirectory()) {
+    files = await readdir(fromPath, {
+      recursive: true,
+      withFileTypes: true
+    })
+  } else {
+    files = [{
+      isFile() { return statFromPath.isFile() },
+      parentPath: path.dirname(fromPath),
+      name: path.basename(fromPath)
+    }]
+  }
+
+  let operations = []
+
+  for (let file of files) {
+    if (file.isFile()) {
+      if (junk === false && isNotJunk(file.name)) {
+        let realFromPath = `${file.parentPath}/${file.name}`
+        let realToPath = toPath + realFromPath.slice(fromPath.length)
+        let operation = { src: realFromPath, dest: realToPath }
+        try {
+          await cp(realFromPath, realToPath)
+          operation.stats = await stat(realToPath)
+        } catch (cpError) {
+          // at this point, we can bail out to the user to cure, or we can attempt some basic cures:
+          // not portable, but apparently neither is node, so this is better than nothing for now
+          try {
+            await bash(`sudo mkdir -p $(dirname '${realToPath}'); sudo cp '${realFromPath}' '${realToPath}'`)
+            operation.stats = await stat(realToPath)
+          } catch (cureError) {
+            console.error('Node copy failed, and attempting to fix it also failed.')
+            console.error(cpError)
+            console.error(cureError)
+          }
+        }
+        operations.push(operation)
+      }
+    }
+  }
+
+  return operations
 }
 
 export async function bash(cmd, {
