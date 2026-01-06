@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import copy from 'recursive-copy'
-import { fixInstalledPath, fixSourceControlPath, logNoSuchFile, buildCopyOptions, parseMeadows, runDirectly } from './common.js'
+import { fixInstalledPath, fixSourceControlPath, logNoSuchFile, buildCopyOptions, parseMeadows, runDirectly, meadowLabel } from './common.js'
 
 export async function sow() {
   const { meadows } = await parseMeadows()
@@ -18,28 +18,42 @@ export async function sow() {
 
   try {
     for (const [index, meadow] of Object.entries(meadows)) {
-      let shouldSow = await (meadow.if?.() ?? true)
-      if (shouldSow) {
+      let shouldSow = meadow.if ? await meadow.if?.() : true
+      let capableOfSow = Boolean(meadow.path) || Boolean(meadow.sow)
+      if (shouldSow && capableOfSow) {
+        let copiedFiles
 
         // We could, if we wanted to get smart, throw files together in a batch, then trigger them asynchronously.
         if (meadow.path) {
-          await copy(
-            fixSourceControlPath(meadow.path),
-            fixInstalledPath(meadow.path),
-            buildCopyOptions(copyOptions, meadow)
-          )
-            .then(() => console.log(`Copied '${fixSourceControlPath(meadow.path)}' to '${fixInstalledPath(meadow.path)}'`))
-            .catch(logNoSuchFile)
-        } else if (meadow.run) {
-          await meadow.run()
+          try {
+            let operations = await copy(
+              fixSourceControlPath(meadow.path),
+              fixInstalledPath(meadow.path),
+              buildCopyOptions(copyOptions, meadow)
+            )
+
+            // possibly there's a bug where the operation doesn't work
+            copiedFiles = operations.map(operation => operation.dest)
+
+            console.log(`Copied '${fixSourceControlPath(meadow.path)}' to '${fixInstalledPath(meadow.path)}'`)
+          } catch (error) {
+            logNoSuchFile(error)
+          }
+        }
+
+        if (meadow.sow) {
+          try {
+            await meadow.sow({copiedFiles})
+          } catch (error) {
+            console.error(`ERROR: Sow failed for ${meadowLabel(meadow, index)}!`)
+            console.error(error)
+          }
         }
       } else {
-        if (meadow.path) {
-          console.log(`Skipping file "${meadow.path}" (step # ${index}).`)
-        } else if (meadow.name) {
-          console.log(`Skipping step "${meadow.name}" (step # ${index}).`)
+        if (!capableOfSow) {
+          console.log(`Skipping ${meadowLabel(meadow, index)} b/c this meadow isn't capable of it.`)
         } else {
-          console.log(`Skipping step # ${index}.`)
+          console.log(`Skipping ${meadowLabel(meadow, index)} b/c the condition didn't pass.`)
         }
       }
     }

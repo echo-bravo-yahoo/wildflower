@@ -67,6 +67,16 @@ export const logNoSuchFile = (error) => {
   }
 }
 
+export function meadowLabel(meadow) {
+  if (meadow.path) {
+    return `"${meadow.path}" (step #${index})`
+  } else if (meadow.name) {
+    return `"${meadow.name}" (step #${index})`
+  } else {
+    return `# ${index}`
+  }
+} 
+
 export function fixInstalledPath(filepath) {
   if (filepath[0] === '~') {
     filepath = path.join(process.env['HOME'], filepath.slice(1))
