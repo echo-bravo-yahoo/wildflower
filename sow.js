@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import copy from 'recursive-copy'
-import { fixInstalledPath, fixSourceControlPath, logNoSuchFile, buildCopyOptions, parseMeadows, runDirectly, meadowLabel } from './common.js'
+import { fixInstalledPath, fixSourceControlPath, logNoSuchFile, buildCopyOptions, parseMeadows, runDirectly, meadowLabel, curableCopy } from './common.js'
 
 export async function sow() {
   const { meadows } = await parseMeadows()
@@ -26,13 +26,12 @@ export async function sow() {
         // We could, if we wanted to get smart, throw files together in a batch, then trigger them asynchronously.
         if (meadow.path) {
           try {
-            let operations = await copy(
+            let operations = await (meadow.curable ? curableCopy : copy)(
               fixSourceControlPath(meadow.path),
               fixInstalledPath(meadow.path),
               buildCopyOptions(copyOptions, meadow)
             )
 
-            // possibly there's a bug where the operation doesn't work
             copiedFiles = operations.map(operation => operation.dest)
 
             console.log(`Copied '${fixSourceControlPath(meadow.path)}' to '${fixInstalledPath(meadow.path)}'`)
