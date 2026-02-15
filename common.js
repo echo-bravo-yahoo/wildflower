@@ -35,6 +35,9 @@ export function getValleyDir() {
         let nextDir = path.dirname(maybeValleyDir)
         if (maybeValleyDir !== nextDir) {
           maybeValleyDir = nextDir
+        } else {
+          maybeValleyDir = null
+          break;
         }
       }
     }

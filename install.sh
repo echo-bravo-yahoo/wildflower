@@ -1,15 +1,28 @@
 #!/bin/sh
 
 install_wildflower() {
-  npm ls -g wildflower && {
-    echo "wildflower already installed. Nothing to do. Exiting…"
-  } || {
+  (npm ls -g wildflower >/dev/null)
+  has_wildflower=$?
+
+  if [[ $has_wildflower == 0 ]]; then
+    local local_version=$(wildflower version 2>/dev/null)
+    local remote_version=$(npm info github:echo-bravo-yahoo/wildflower version)
+    if [[ ! $local_version == $remote_version ]]; then
+      echo "Updating wildflower…"
+      npm i -g github:echo-bravo-yahoo/wildflower || {
+        echo "Failed to update wildflower. Exiting!"
+        exit 1
+      }
+    else 
+      echo "wildflower already up to date. Nothing to do. Exiting…"
+    fi
+  else
     echo "Installing wildflower…"
     npm i -g github:echo-bravo-yahoo/wildflower || {
       echo "Failed to install wildflower. Exiting!"
       exit 1
     }
-  }
+  fi
 }
 
 NVM_VERSION=""
@@ -39,7 +52,7 @@ else
 
   NODE_VERSION=$(nvm current)
 
-	if [ "$NODE_VERSION" = "none" ] || "$NODE_VERSION" = "system" ; then
+	if [[ "$NODE_VERSION" == "none" ]] || [[ "$NODE_VERSION" == "system" ]] ; then
 		echo "Installing node…"
 
     nvm install node
