@@ -11,9 +11,12 @@ export async function sow() {
   }
 
   const copyOptions = {
+    // expand: false preserves symlinks; tracking-as-symlinks (e.g. a script
+    // mirrored from a separate workspace) depends on this. Keep aligned with
+    // gather.js so the round-trip is type-preserving.
     dot: true,
     overwrite: true,
-    expand: true
+    expand: false
   }
 
   try {
