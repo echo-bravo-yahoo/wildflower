@@ -96,6 +96,73 @@ export function fixSourceControlPath(filepath) {
   return path.join(getValleyDir(), "/meadows", filepath)
 }
 
+/**
+ * Given a path on disk (live FS or under meadows/), find the meadow
+ * declaration that covers it. Matches by longest prefix so a more specific
+ * meadow wins over a broader parent. Returns { meadow, installed, absolute }
+ * (installed = absolute live-FS root for the meadow; absolute = caller's
+ * path normalized to its live-FS form). Returns null if no meadow covers.
+ */
+export function findMeadowForPath(targetPath, meadows) {
+  const meadowsRoot = path.join(getValleyDir(), 'meadows')
+  let abs = targetPath
+  if (abs.startsWith('~')) abs = fixInstalledPath(abs)
+  abs = path.resolve(abs)
+
+  // If the path is under the meadows/ mirror, map it back to the live FS
+  // equivalent first so the lookup logic is single-pass.
+  if (abs === meadowsRoot || abs.startsWith(meadowsRoot + '/')) {
+    let mirrorRel = abs.slice(meadowsRoot.length).replace(/^\/+/, '')
+    // mirrorRel looks like '~~/.zshrc' — strip one `~` so we have `~/.zshrc`
+    if (mirrorRel.startsWith('~~')) mirrorRel = mirrorRel.slice(1)
+    abs = fixInstalledPath(mirrorRel)
+  }
+
+  let bestMeadow = null
+  let bestInstalled = null
+  let bestLen = -1
+  for (const meadow of meadows) {
+    if (!meadow.path) continue
+    const installed = path.resolve(fixInstalledPath(meadow.path))
+    if (abs === installed || abs.startsWith(installed + '/')) {
+      if (installed.length > bestLen) {
+        bestMeadow = meadow
+        bestInstalled = installed
+        bestLen = installed.length
+      }
+    }
+  }
+  if (!bestMeadow) return null
+  return { meadow: bestMeadow, installed: bestInstalled, absolute: abs }
+}
+
+/**
+ * Bidirectional path mapping. Given any tracked path (live FS form or
+ * meadows-mirror form), return the path in the other store.
+ * Throws if the input isn't covered by any meadow.
+ */
+export async function mapPath(targetPath) {
+  const { meadows } = await parseMeadows()
+  const match = findMeadowForPath(targetPath, meadows)
+  if (!match) {
+    const err = new Error(`path not in meadows.mjs; add it to track: ${targetPath}`)
+    err.code = 'ENOMEADOW'
+    throw err
+  }
+  const meadowsRoot = path.join(getValleyDir(), 'meadows')
+  let abs = targetPath
+  if (abs.startsWith('~')) abs = fixInstalledPath(abs)
+  abs = path.resolve(abs)
+
+  if (abs === meadowsRoot || abs.startsWith(meadowsRoot + '/')) {
+    // input is meadows-side → return live FS path
+    return match.absolute
+  }
+  // input is live FS → return meadow mirror path
+  const rel = match.absolute.slice(match.installed.length)
+  return fixSourceControlPath(match.meadow.path) + rel
+}
+
 export async function curableCopy(
   fromPath,
   toPath,
