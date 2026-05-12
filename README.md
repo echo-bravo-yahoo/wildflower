@@ -93,6 +93,53 @@ When combined with paths, both `gather` and `sow` recieve the paths of the final
 }
 ```
 
+## Targeted (per-file) operations
+
+`gather`, `sow`, and the new `diff` accept zero or more path arguments. With no args, they operate on every meadow (wholesale, the original behavior). With one or more args, they operate only on the named paths:
+
+```sh
+# Wholesale (unchanged):
+wildflower gather
+wildflower sow
+
+# Per-file:
+wildflower gather ~/.zshrc
+wildflower gather ~/.config/ghostty
+wildflower sow    ~/.claude/CLAUDE.md
+wildflower diff   ~/.zshrc                 # reports divergence; no mutation
+wildflower diff                            # all meadows
+```
+
+Targeted operations:
+- Skip meadow-level `if` conditions and `meadow.gather()` / `meadow.sow()` callbacks (those are whole-meadow semantics; the user named the file explicitly).
+- Ignore meadow filters when an explicit path is given. Filters exist to restrict wholesale recursion; when a path is named on the CLI, it's gathered/sowed as-is.
+- Preserve symlinks (`expand: false` in both directions).
+
+## `wildflower path`
+
+A pure path-mapping primitive. Given a tracked path in either form, emits the path in the other store:
+
+```sh
+wildflower path ~/.zshrc
+# → /path/to/valley/meadows/~~/.zshrc
+
+wildflower path /path/to/valley/meadows/~~/.zshrc
+# → /Users/you/.zshrc
+```
+
+No I/O beyond reading `meadows.mjs`. Useful as a composable building block: `diff $(wildflower path ~/.zshrc) ~/.zshrc`, or `cp ~/.zshrc "$(wildflower path ~/.zshrc)"`.
+
+Exits non-zero if the path isn't covered by any meadow.
+
+## `wildflower diff`
+
+Reports divergence between live FS and the meadows mirror. Read-only; never mutates. Exit codes:
+- `0` — all checked paths identical
+- `1` — at least one divergence
+- `2` — at least one path not tracked, or other error
+
+Implementation delegates to `diff -rq` per pair.
+
 ## Todo:
 - Add ability for wildflower to run commands 
   - Note that the `sow` step current runs commands, but the `gather` step does not.
