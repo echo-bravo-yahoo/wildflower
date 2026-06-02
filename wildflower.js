@@ -10,7 +10,7 @@ let command = process.argv[2]
 if (command === 'sow') {
   await sow()
 } else if (command === 'gather') {
-  await gather()
+  await gather(process.argv[3])
 } else if (command === 'till') {
   await till()
 } else if (command === 'version') {
