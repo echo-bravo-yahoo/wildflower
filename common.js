@@ -3,6 +3,8 @@ import { spawn } from 'node:child_process'
 import fs from 'fs'
 import { cp, readdir, stat, statfs } from 'node:fs/promises';
 import { isNotJunk } from 'junk'
+import copy from 'recursive-copy'
+import maximatch from 'maximatch'
 
 const __dirname = import.meta.dirname;
 
@@ -96,14 +98,100 @@ export function fixSourceControlPath(filepath) {
   return path.join(getValleyDir(), "/meadows", filepath)
 }
 
+// Evaluate a meadow's filter against a path relative to the meadow root. The
+// filter is recursive-copy's form: an array of globs (`!` negates) or a
+// predicate. No filter means include everything.
+export function matchesFilter(filter, relPath) {
+  if (Array.isArray(filter)) return maximatch([relPath], filter).length > 0
+  if (typeof filter === 'function') return filter(relPath)
+  return true
+}
+
+// Copy a single tracked path (file or subtree) between the live filesystem and
+// its mirror. `direction` is 'gather' (live → mirror) or 'sow' (mirror → live).
+// Finds the meadow that owns the path, honors that meadow's `if` condition and
+// filter, then copies only files under the target — leaving every other tracked
+// file untouched, so concurrent edits to other files don't bleed in.
+export async function copyPath(targetPath, meadows, direction) {
+  const verb = direction === 'gather' ? 'gathered' : 'sown'
+  const abs = path.resolve(fixInstalledPath(targetPath))
+
+  let owner
+  for (const [index, meadow] of Object.entries(meadows)) {
+    if (!meadow.path) continue
+    const root = path.resolve(fixInstalledPath(meadow.path))
+    if (abs === root || abs.startsWith(root + path.sep)) {
+      owner = { index, meadow, root }
+      break
+    }
+  }
+  if (!owner) {
+    console.error(`No meadow in meadows.mjs tracks '${abs}'. Add it, or ${direction} the whole valley.`)
+    process.exit(1)
+  }
+  const { index, meadow, root } = owner
+
+  const shouldRun = meadow.if ? await meadow.if() : true
+  if (!shouldRun) {
+    console.log(`Skipping '${abs}' — ${meadowLabel(meadow, index)} condition didn't pass on this host.`)
+    return
+  }
+
+  // Path of the target relative to the meadow root (posix-style, as the meadow
+  // glob filters expect). Empty when the target IS the meadow root. The mirror
+  // preserves the live tree's layout, so this aligns for both directions.
+  const relTarget = path.relative(root, abs).split(path.sep).join('/')
+  const meadowFilter = meadow.filter
+
+  const options = {
+    dot: true,
+    overwrite: true,
+    expand: false,
+    filter(entry) {
+      const norm = String(entry).split(path.sep).join('/')
+      // Restrict the copy to the target (and the dirs needed to reach it).
+      if (relTarget !== '') {
+        const isTarget = norm === relTarget || norm.startsWith(relTarget + '/')
+        const isAncestorDir = relTarget.startsWith(norm + '/')
+        if (!isTarget && !isAncestorDir) return false
+        // Ancestor dirs only need traversal — skip the meadow filter for them.
+        if (isAncestorDir && !isTarget) return true
+      }
+      // Honor the meadow's own include/exclude filter (e.g. !*-tokens.json).
+      return matchesFilter(meadowFilter, norm)
+    },
+  }
+
+  const from = direction === 'gather' ? fixInstalledPath(meadow.path) : fixSourceControlPath(meadow.path)
+  const to = direction === 'gather' ? fixSourceControlPath(meadow.path) : fixInstalledPath(meadow.path)
+
+  try {
+    const operations = await (meadow.curable ? curableCopy : copy)(from, to, options)
+    const files = operations.filter((op) => op.stats?.isFile?.() ?? true)
+    if (files.length === 0) {
+      console.error(`Nothing ${verb} for '${abs}' — excluded by the ${meadowLabel(meadow, index)} filter?`)
+      process.exit(1)
+    }
+    for (const op of files) {
+      console.log(`Copied '${op.src}' to '${op.dest}'`)
+    }
+  } catch (e) {
+    logNoSuchFile(e)
+  }
+}
+
 export async function curableCopy(
   fromPath,
   toPath,
   {
-    junk = false
+    junk = false,
+    // Mirrors recursive-copy's `filter`: an array of globs (with `!` negation)
+    // or a predicate, both keyed on the path relative to `fromPath`. Honored so
+    // curable meadows respect their include/exclude rules, like non-curable ones.
+    filter
   } = {}
 ) {
-  let files 
+  let files
   let statFromPath = await stat(fromPath)
   if (statFromPath.isDirectory()) {
     files = await readdir(fromPath, {
@@ -124,6 +212,9 @@ export async function curableCopy(
     if (file.isFile()) {
       if (junk === false && isNotJunk(file.name)) {
         let realFromPath = `${file.parentPath}/${file.name}`
+        // Path relative to fromPath (posix, no leading separator), as the filter expects.
+        let rel = realFromPath.slice(fromPath.length).replace(/^[\\/]/, '').split(path.sep).join('/')
+        if (!matchesFilter(filter, rel)) continue
         let realToPath = toPath + realFromPath.slice(fromPath.length)
         let operation = { src: realFromPath, dest: realToPath }
         try {

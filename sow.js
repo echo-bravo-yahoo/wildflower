@@ -1,13 +1,19 @@
 #!/usr/bin/env node
 
 import copy from 'recursive-copy'
-import { fixInstalledPath, fixSourceControlPath, logNoSuchFile, buildCopyOptions, parseMeadows, runDirectly, meadowLabel, curableCopy } from './common.js'
+import { fixInstalledPath, fixSourceControlPath, logNoSuchFile, buildCopyOptions, parseMeadows, runDirectly, meadowLabel, curableCopy, copyPath } from './common.js'
 
-export async function sow() {
+export async function sow(targetPath) {
   const { meadows } = await parseMeadows()
 
   if (!meadows) {
     throw new Error("No meadows found! Make sure you're defining it in your meadows.mjs. (e.g. `({ meadows: [...] })`)")
+  }
+
+  // Per-file sow: with an explicit path, deploy only that file/subtree from its
+  // mirror. Without a path, fall through to the wholesale sow below.
+  if (targetPath) {
+    return copyPath(targetPath, meadows, 'sow')
   }
 
   const copyOptions = {
@@ -63,4 +69,4 @@ export async function sow() {
   }
 }
 
-if (runDirectly()) await sow()
+if (runDirectly()) await sow(process.argv[2])

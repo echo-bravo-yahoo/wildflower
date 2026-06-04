@@ -8,7 +8,7 @@ import packageJson from './package.json' with { type: 'json' };
 let command = process.argv[2]
 
 if (command === 'sow') {
-  await sow()
+  await sow(process.argv[3])
 } else if (command === 'gather') {
   await gather(process.argv[3])
 } else if (command === 'till') {
