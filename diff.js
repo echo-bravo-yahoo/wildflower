@@ -6,22 +6,26 @@ import path from 'node:path'
 import { parseMeadows, fixInstalledPath, fixSourceControlPath, findMeadowForPath, matchesFilter, runDirectly } from './common.js'
 
 /**
- * `wildflower diff [<path>...]` — report live FS vs meadows-mirror divergence
- * for tracked paths. Read-only; never mutates. With no args, diffs every
- * meadow; with args, diffs only the named paths.
+ * `wildflower diff [<path>...] [--verbose]` — report live FS vs meadows-mirror
+ * divergence for tracked paths. Read-only; never mutates. With no args, diffs
+ * every meadow; with args, diffs only the named paths.
  *
  * Honors each meadow's filter: filter-excluded paths (e.g. *-tokens.json) are
  * never mirrored, so reporting them as divergent is just noise — they're
  * suppressed on both sides.
  *
- * Implementation note: delegates to `diff -rq` (recursively report differing
- * files, brief output). diff is universally available across the target hosts
- * (mac/wsl/termux/stockholm). Exit code aggregates:
+ * Brief by default (which files differ); `--verbose` additionally prints the
+ * unified patch for each differing file. One-sided files (present on only one
+ * side) stay brief even in verbose to avoid dumping whole files.
+ *
+ * Implementation note: delegates to `diff` (universally available across the
+ * target hosts: mac/wsl/termux/stockholm) — `-rq` to decide the filtered set,
+ * then `-u` per included differing file in verbose mode. Exit code aggregates:
  *   0 = all tracked paths identical
  *   1 = at least one divergence (paths or content)
  *   2 = at least one path not tracked or other error
  */
-export async function diff(targets = null) {
+export async function diff(targets = null, { verbose = false } = {}) {
   const { meadows } = await parseMeadows()
 
   let pairs = []
@@ -88,15 +92,23 @@ export async function diff(targets = null) {
       aggregateExit = Math.max(aggregateExit, 1)
       continue
     }
-    const { out } = await runDiff(live, meadow)
+    const { out } = await runDiff(['-rq', live, meadow])
     // Drop lines about filter-excluded paths; report only tracked divergence.
-    const kept = out.split('\n').filter((line) => {
-      if (!line.trim()) return false
-      const p = pathFromDiffLine(line)
-      return p === null || included(p)
-    })
-    if (kept.length) {
-      console.log(kept.join('\n'))
+    const blocks = []
+    for (const line of out.split('\n')) {
+      if (!line.trim()) continue
+      const info = parseDiffLine(line)
+      if (info && info.path !== null && !included(info.path)) continue
+      if (verbose && info && info.a && info.b) {
+        // Expand "Files A and B differ" into its unified patch.
+        const { out: patch } = await runDiff(['-u', info.a, info.b])
+        blocks.push(patch.trimEnd() || line)
+      } else {
+        blocks.push(line)
+      }
+    }
+    if (blocks.length) {
+      console.log(blocks.join('\n'))
       aggregateExit = Math.max(aggregateExit, 1)
     }
   }
@@ -111,19 +123,21 @@ function relUnder(p, root) {
   return null
 }
 
-// Extract the filesystem path a `diff -rq` line refers to, or null for lines
-// whose shape we don't recognize (kept as-is so real errors stay visible).
-function pathFromDiffLine(line) {
-  let m = line.match(/^Only in (.+?): (.+)$/)
-  if (m) return path.join(m[1], m[2])
-  m = line.match(/^Files (.+?) and (.+?) differ$/)
-  if (m) return m[1]
+// Parse a `diff -rq` line into { path, a, b }: `path` is the filesystem path the
+// line refers to (for filtering); `a`/`b` are the two file paths when the line
+// is "Files A and B differ" (so verbose mode can re-diff them), else null.
+// Unrecognized lines return null and are kept as-is (real errors stay visible).
+function parseDiffLine(line) {
+  let m = line.match(/^Files (.+?) and (.+?) differ$/)
+  if (m) return { path: m[1], a: m[1], b: m[2] }
+  m = line.match(/^Only in (.+?): (.+)$/)
+  if (m) return { path: path.join(m[1], m[2]), a: null, b: null }
   return null
 }
 
-function runDiff(live, meadow) {
+function runDiff(args) {
   return new Promise((resolve) => {
-    const child = spawn('diff', ['-rq', live, meadow], { stdio: ['ignore', 'pipe', 'pipe'] })
+    const child = spawn('diff', args, { stdio: ['ignore', 'pipe', 'pipe'] })
     let out = ''
     child.stdout.on('data', d => out += d)
     child.stderr.on('data', d => out += d)
@@ -131,4 +145,9 @@ function runDiff(live, meadow) {
   })
 }
 
-if (runDirectly()) await diff(process.argv.slice(2).length > 0 ? process.argv.slice(2) : null)
+if (runDirectly()) {
+  const args = process.argv.slice(2)
+  const verbose = args.includes('--verbose')
+  const paths = args.filter((a) => a !== '--verbose')
+  await diff(paths.length > 0 ? paths : null, { verbose })
+}

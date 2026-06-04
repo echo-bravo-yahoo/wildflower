@@ -34,11 +34,14 @@ form), gathers only those, honoring each meadow's \`if\` condition and filter
 Copy files from the meadows mirror back to the live filesystem. With no <path>,
 sows every meadow wholesale. With one or more <path>, sows only those, honoring
 each meadow's \`if\` condition and filter.`,
-  diff: `wildflower diff [<path>...]
+  diff: `wildflower diff [<path>...] [--verbose]
 
 Report divergence between the live filesystem and the meadows mirror. Read-only;
 never mutates. Honors each meadow's filter, so excluded paths (e.g.
 *-tokens.json) are not reported. With no <path>, diffs every meadow.
+
+  --verbose   Print the unified patch for each differing file (default: just
+              report which files differ).
 
 Exit codes: 0 = identical, 1 = differ, 2 = path not tracked / error.`,
   path: `wildflower path <path>...
@@ -70,7 +73,9 @@ if (command && COMMAND_HELP[command] && wantsHelp(rest)) {
 } else if (command === 'path') {
   await pathCmd(rest)
 } else if (command === 'diff') {
-  await diff(rest.length > 0 ? rest : null)
+  const verbose = rest.includes('--verbose')
+  const paths = rest.filter((a) => a !== '--verbose')
+  await diff(paths.length > 0 ? paths : null, { verbose })
 } else if (command === 'version' || command === '--version' || command === '-v') {
   console.log(VERSION)
 } else if (command === 'help' || command === '--help' || command === '-h') {
