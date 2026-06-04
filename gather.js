@@ -2,11 +2,27 @@
 
 import copy from 'recursive-copy'
 import * as fs from 'node:fs'
-import { parseMeadows, meadowLabel, curableCopy } from './common.js'
+import { parseMeadows, meadowLabel, curableCopy, copyPath } from './common.js'
 import { fixInstalledPath, fixSourceControlPath, logNoSuchFile, buildCopyOptions, runDirectly } from './common.js'
 
-export async function gather() {
+export async function gather(targets = null) {
   const { meadows } = await parseMeadows()
+
+  fs.mkdirSync('./meadows', { recursive: true })
+
+  // Per-file (targeted) mode. Each target is a live FS path or a meadows mirror
+  // path; resolve to the owning meadow and copy just that path live FS → meadows,
+  // honoring the meadow's `if` condition and filter (so excluded paths like
+  // *-tokens.json are refused, not mirrored). The per-meadow gather() callback is
+  // skipped — that's whole-meadow semantics.
+  if (targets && targets.length > 0) {
+    let code = 0
+    for (const target of targets) {
+      code = Math.max(code, await copyPath(target, meadows, 'gather'))
+    }
+    if (code) process.exitCode = code
+    return
+  }
 
   const copyOptions = {
     dot: true,
@@ -17,8 +33,6 @@ export async function gather() {
       return !(e.includes('node_modules'))
     }
   }
-
-  fs.mkdirSync('./meadows', { recursive: true })
 
   try {
     for (const [index, meadow] of Object.entries(meadows)) {
@@ -68,4 +82,4 @@ export async function gather() {
   // At some point, we should probably add a separate command to clean up files that have been previously committed, but aren't referenced by the meadows.mjs anymore. That would require some thinking so we don't remove files we're skipping on this system, but are referenced in meadows.mjs.
 }
 
-if (runDirectly()) await gather()
+if (runDirectly()) await gather(process.argv.slice(2).length > 0 ? process.argv.slice(2) : null)

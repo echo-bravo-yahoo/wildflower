@@ -1,19 +1,35 @@
 #!/usr/bin/env node
 
 import copy from 'recursive-copy'
-import { fixInstalledPath, fixSourceControlPath, logNoSuchFile, buildCopyOptions, parseMeadows, runDirectly, meadowLabel, curableCopy } from './common.js'
+import { fixInstalledPath, fixSourceControlPath, logNoSuchFile, buildCopyOptions, parseMeadows, runDirectly, meadowLabel, curableCopy, copyPath } from './common.js'
 
-export async function sow() {
+export async function sow(targets = null) {
   const { meadows } = await parseMeadows()
 
   if (!meadows) {
     throw new Error("No meadows found! Make sure you're defining it in your meadows.mjs. (e.g. `({ meadows: [...] })`)")
   }
 
+  // Per-file (targeted) mode — symmetric to gather. Resolve each target to its
+  // owning meadow and copy just that path meadows → live FS, honoring the
+  // meadow's `if` condition and filter. The per-meadow sow() callback is skipped
+  // (whole-meadow semantics).
+  if (targets && targets.length > 0) {
+    let code = 0
+    for (const target of targets) {
+      code = Math.max(code, await copyPath(target, meadows, 'sow'))
+    }
+    if (code) process.exitCode = code
+    return
+  }
+
   const copyOptions = {
+    // expand: false preserves symlinks; tracking-as-symlinks (e.g. a script
+    // mirrored from a separate workspace) depends on this. Keep aligned with
+    // gather.js so the round-trip is type-preserving.
     dot: true,
     overwrite: true,
-    expand: true
+    expand: false
   }
 
   try {
@@ -63,4 +79,4 @@ export async function sow() {
   }
 }
 
-if (runDirectly()) await sow()
+if (runDirectly()) await sow(process.argv.slice(2).length > 0 ? process.argv.slice(2) : null)
