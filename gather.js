@@ -2,8 +2,7 @@
 
 import copy from 'recursive-copy'
 import * as fs from 'node:fs'
-import path from 'node:path'
-import { parseMeadows, meadowLabel, curableCopy, findMeadowForPath } from './common.js'
+import { parseMeadows, meadowLabel, curableCopy, copyPath } from './common.js'
 import { fixInstalledPath, fixSourceControlPath, logNoSuchFile, buildCopyOptions, runDirectly } from './common.js'
 
 export async function gather(targets = null) {
@@ -11,33 +10,17 @@ export async function gather(targets = null) {
 
   fs.mkdirSync('./meadows', { recursive: true })
 
-  // Per-file (targeted) mode. Each target is a live FS path or a meadows
-  // mirror path; we resolve to the live FS form and copy just that path.
-  // Per-meadow `if` conditions and `meadow.gather()` callbacks are skipped
-  // because they're whole-meadow semantics; the user named the file
-  // explicitly and we honor that.
+  // Per-file (targeted) mode. Each target is a live FS path or a meadows mirror
+  // path; resolve to the owning meadow and copy just that path live FS → meadows,
+  // honoring the meadow's `if` condition and filter (so excluded paths like
+  // *-tokens.json are refused, not mirrored). The per-meadow gather() callback is
+  // skipped — that's whole-meadow semantics.
   if (targets && targets.length > 0) {
-    let exitCode = 0
+    let code = 0
     for (const target of targets) {
-      const match = findMeadowForPath(target, meadows)
-      if (!match) {
-        console.error(`Skipping '${target}': not in meadows.mjs (add it to track)`)
-        exitCode = 1
-        continue
-      }
-      const rel = match.absolute.slice(match.installed.length)
-      const src = match.absolute
-      const dst = fixSourceControlPath(match.meadow.path) + rel
-      try {
-        fs.mkdirSync(path.dirname(dst), { recursive: true })
-        await copy(src, dst, { dot: true, overwrite: true, expand: false })
-        console.log(`Gathered '${src}' to '${dst}'`)
-      } catch (e) {
-        logNoSuchFile(e)
-        exitCode = 1
-      }
+      code = Math.max(code, await copyPath(target, meadows, 'gather'))
     }
-    if (exitCode !== 0) process.exitCode = exitCode
+    if (code) process.exitCode = code
     return
   }
 

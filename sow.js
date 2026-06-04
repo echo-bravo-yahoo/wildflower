@@ -1,9 +1,7 @@
 #!/usr/bin/env node
 
 import copy from 'recursive-copy'
-import * as fs from 'node:fs'
-import path from 'node:path'
-import { fixInstalledPath, fixSourceControlPath, logNoSuchFile, buildCopyOptions, parseMeadows, runDirectly, meadowLabel, curableCopy, findMeadowForPath } from './common.js'
+import { fixInstalledPath, fixSourceControlPath, logNoSuchFile, buildCopyOptions, parseMeadows, runDirectly, meadowLabel, curableCopy, copyPath } from './common.js'
 
 export async function sow(targets = null) {
   const { meadows } = await parseMeadows()
@@ -12,32 +10,16 @@ export async function sow(targets = null) {
     throw new Error("No meadows found! Make sure you're defining it in your meadows.mjs. (e.g. `({ meadows: [...] })`)")
   }
 
-  // Per-file (targeted) mode. Symmetric to gather's targeted mode: each
-  // target resolves to a meadow, and we copy just the mirror path back to
-  // its live FS location. Meadow `if` conditions and `meadow.sow()` callbacks
-  // are skipped because they're whole-meadow semantics.
+  // Per-file (targeted) mode — symmetric to gather. Resolve each target to its
+  // owning meadow and copy just that path meadows → live FS, honoring the
+  // meadow's `if` condition and filter. The per-meadow sow() callback is skipped
+  // (whole-meadow semantics).
   if (targets && targets.length > 0) {
-    let exitCode = 0
+    let code = 0
     for (const target of targets) {
-      const match = findMeadowForPath(target, meadows)
-      if (!match) {
-        console.error(`Skipping '${target}': not in meadows.mjs (add it to track)`)
-        exitCode = 1
-        continue
-      }
-      const rel = match.absolute.slice(match.installed.length)
-      const src = fixSourceControlPath(match.meadow.path) + rel
-      const dst = match.absolute
-      try {
-        fs.mkdirSync(path.dirname(dst), { recursive: true })
-        await copy(src, dst, { dot: true, overwrite: true, expand: false })
-        console.log(`Sowed '${src}' to '${dst}'`)
-      } catch (e) {
-        logNoSuchFile(e)
-        exitCode = 1
-      }
+      code = Math.max(code, await copyPath(target, meadows, 'sow'))
     }
-    if (exitCode !== 0) process.exitCode = exitCode
+    if (code) process.exitCode = code
     return
   }
 
