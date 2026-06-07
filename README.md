@@ -28,6 +28,29 @@ The filesystem you should have after tilling will look something like:
 
 A valley (the folder where your meadows are) can be located in one of three places: in or next to the wildflower source repo (if you cloned it from github), defined by the VALLEY_PATH variable (e.g. `VALLEY_PATH=~/valley`), or in the current working path of the terminal you're running wildflower commands from.
 
+## Recovering from divergence (3-way merge)
+
+After every `sow`, wildflower writes `.wildflower-state.json` at the valley root, recording the commit the live filesystem was synced to. It is per-machine state: if you version your valley with git, ignore this file.
+
+If your valley is a git repo, that recorded commit is the **merge base** when the live filesystem and the mirror diverge. The base turns an ambiguous live-vs-`HEAD` diff into a well-defined 3-way merge (base = last-sown commit, *ours* = live FS, *theirs* = current `HEAD`):
+
+| live vs base | HEAD vs base | meaning | action |
+| --- | --- | --- | --- |
+| same | changed | machine behind valley, no local edit | `sow` (overwrite live) |
+| changed | same | genuine local edit | `gather` |
+| changed | changed | real conflict | 3-way merge |
+| same | same | in sync | nothing to do |
+
+For the conflict cell, merge a single path against the recorded base. `git merge-file` needs real files (it seeks within them), so extract the base and `HEAD` blobs to temp files rather than piping them in:
+
+```bash
+base_commit=$(jq -r .commit .wildflower-state.json)
+p=~~/.someconfig   # a path under meadows/
+git show "$base_commit:meadows/$p" > /tmp/wf-base
+git show "HEAD:meadows/$p" > /tmp/wf-theirs
+git merge-file ~/.someconfig /tmp/wf-base /tmp/wf-theirs   # edits ~/.someconfig in place
+```
+
 ## Writing `meadows.mjs`
 
 You can currently define two types of meadows: `path`s, which allow you to easily copy and manage files and folders, and `run`s, which allow you to run arbitrary commands.

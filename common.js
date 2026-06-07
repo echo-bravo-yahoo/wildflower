@@ -1,10 +1,11 @@
 import path from 'node:path'
-import { spawn } from 'node:child_process'
+import { spawn, execSync } from 'node:child_process'
 import fs from 'fs'
 import { cp, readdir, stat, statfs } from 'node:fs/promises';
 import { isNotJunk } from 'junk'
 import copy from 'recursive-copy'
 import maximatch from 'maximatch'
+import packageJson from './package.json' with { type: 'json' }
 
 const __dirname = import.meta.dirname;
 
@@ -53,6 +54,27 @@ export function getValleyDir() {
 
     return valleyDir
   }
+}
+
+/**
+ * Records the commit the live filesystem was synced to, written to the valley
+ * root after a wholesale sow. This watermark is the merge base for a later
+ * 3-way merge when the live filesystem and the mirror diverge. Self-contained
+ * try/catch: a non-git valley or git failure degrades gracefully and never
+ * aborts a sow.
+ */
+export function writeSyncMetadata() {
+  const valley = getValleyDir()
+  let commit
+  try {
+    commit = execSync('git rev-parse HEAD', { cwd: valley, stdio: ['ignore', 'pipe', 'ignore'] })
+      .toString().trim()
+  } catch {
+    console.error('Warning: valley is not a git repo or HEAD unreadable; skipping sync metadata.')
+    return
+  }
+  const meta = { commit, sownAt: new Date().toISOString(), wildflowerVersion: packageJson.version }
+  fs.writeFileSync(path.join(valley, '.wildflower-state.json'), JSON.stringify(meta, null, 2) + '\n')
 }
 
 export function buildCopyOptions(baseOptions, meadow) {

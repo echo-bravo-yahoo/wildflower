@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import copy from 'recursive-copy'
-import { fixInstalledPath, fixSourceControlPath, logNoSuchFile, buildCopyOptions, parseMeadows, runDirectly, meadowLabel, curableCopy, copyPath } from './common.js'
+import { fixInstalledPath, fixSourceControlPath, logNoSuchFile, buildCopyOptions, parseMeadows, runDirectly, meadowLabel, curableCopy, copyPath, writeSyncMetadata } from './common.js'
 
 export async function sow(targets = null) {
   const { meadows } = await parseMeadows()
@@ -72,6 +72,12 @@ export async function sow(targets = null) {
         }
       }
     }
+
+    // Records HEAD at sow time as the watermark; a valid 3-way merge base only
+    // when the valley working tree was clean at sow. Only wholesale sow should
+    // advance it — a future per-file sow must NOT write it. Sow is wholesale-only
+    // today, so this single call site is correct.
+    writeSyncMetadata()
 
     console.log('Done sowing.')
   } catch (err) {
