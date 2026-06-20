@@ -1,11 +1,14 @@
 #!/usr/bin/env node
 
+import updateNotifier from 'update-notifier'
 import { sow } from "./sow.js";
 import { gather } from "./gather.js";
 import { till } from "./till.js";
 import { pathCmd } from "./path.js";
 import { diff } from "./diff.js";
 import packageJson from './package.json' with { type: 'json' };
+
+updateNotifier({ pkg: packageJson }).notify()
 
 const VERSION = packageJson.version
 

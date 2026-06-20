@@ -117,7 +117,7 @@ export async function diff(targets = null, { verbose = false } = {}) {
 }
 
 // Path of `p` relative to `root` (posix), or null if not under root.
-function relUnder(p, root) {
+export function relUnder(p, root) {
   if (p === root) return ''
   if (p.startsWith(root + path.sep)) return p.slice(root.length + 1).split(path.sep).join('/')
   return null
@@ -127,7 +127,7 @@ function relUnder(p, root) {
 // line refers to (for filtering); `a`/`b` are the two file paths when the line
 // is "Files A and B differ" (so verbose mode can re-diff them), else null.
 // Unrecognized lines return null and are kept as-is (real errors stay visible).
-function parseDiffLine(line) {
+export function parseDiffLine(line) {
   let m = line.match(/^Files (.+?) and (.+?) differ$/)
   if (m) return { path: m[1], a: m[1], b: m[2] }
   m = line.match(/^Only in (.+?): (.+)$/)

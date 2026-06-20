@@ -5,15 +5,28 @@
   "description": "an unopinionated tool for managing your dotflowers",
   "main": "wildflower.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node --test 'test/**/*.test.js'",
+    "test:coverage": "node --experimental-test-coverage --test 'test/**/*.test.js'"
   },
   "bin": {
     "wildflower": "wildflower.js"
   },
+  "files": [
+    "common.js",
+    "diff.js",
+    "gather.js",
+    "path.js",
+    "sow.js",
+    "till.js",
+    "wildflower.js",
+    "install.sh",
+    "README.md"
+  ],
   "author": "",
   "license": "ISC",
   "dependencies": {
     "junk": "^4.0.1",
-    "recursive-copy": "^2.0.14"
+    "recursive-copy": "^2.0.14",
+    "update-notifier": "^7.3.1"
   }
 }
