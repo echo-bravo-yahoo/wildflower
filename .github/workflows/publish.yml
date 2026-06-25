@@ -22,3 +22,5 @@ jobs:
       - run: npm run test:coverage
       - run: npm config delete //registry.npmjs.org/:_authToken
       - run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ''
