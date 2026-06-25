@@ -28,4 +28,4 @@ jobs:
             | jq -r '.value')
           echo "::add-mask::$TOKEN"
           echo "NODE_AUTH_TOKEN=$TOKEN" >> "$GITHUB_ENV"
-      - run: npm publish --provenance --access public
+      - run: npm publish --provenance --access public || (cat /home/runner/.npm/_logs/*debug* 2>/dev/null && exit 1)
