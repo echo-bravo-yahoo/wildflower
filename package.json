@@ -22,6 +22,10 @@
     "install.sh",
     "README.md"
   ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/echo-bravo-yahoo/wildflower.git"
+  },
   "author": "",
   "license": "ISC",
   "dependencies": {
