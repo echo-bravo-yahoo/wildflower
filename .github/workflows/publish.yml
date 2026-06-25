@@ -20,4 +20,6 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
       - run: npm ci
       - run: npm run test:coverage
-      - run: unset NODE_AUTH_TOKEN && npm publish --provenance --access public
+      - run: |
+          sed -i '/_authToken/d' "$NPM_CONFIG_USERCONFIG"
+          npm publish --provenance --access public
