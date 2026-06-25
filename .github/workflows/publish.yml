@@ -20,12 +20,5 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
       - run: npm ci
       - run: npm run test:coverage
-      - name: Get npm OIDC token
-        run: |
-          TOKEN=$(curl -fsSL \
-            -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
-            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=https://npm.im/wildflower" \
-            | jq -r '.value')
-          echo "::add-mask::$TOKEN"
-          echo "NODE_AUTH_TOKEN=$TOKEN" >> "$GITHUB_ENV"
-      - run: npm publish --provenance --access public || (cat /home/runner/.npm/_logs/*debug* 2>/dev/null && exit 1)
+      - run: npm config delete //registry.npmjs.org/:_authToken
+      - run: npm publish --provenance --access public
