@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import copy from 'recursive-copy'
-import { fixInstalledPath, fixSourceControlPath, logNoSuchFile, buildCopyOptions, parseMeadows, runDirectly, meadowLabel, curableCopy, copyPath, writeSyncMetadata } from './common.js'
+import { fixInstalledPath, fixSourceControlPath, logNoSuchFile, buildCopyOptions, parseMeadows, runDirectly, meadowLabel, curableCopy, copyPath, writeSyncMetadata, getValleyDir, getWatermarkDir } from './common.js'
 
 export async function sow(targets = null) {
   const { meadows } = await parseMeadows()
@@ -21,6 +21,20 @@ export async function sow(targets = null) {
     }
     if (code) process.exitCode = code
     return
+  }
+
+  // Wholesale sow is only meaningful from the main checkout. From a linked
+  // worktree it would deliver a session branch's mirror to the shared home
+  // directory and stamp the watermark with a session-branch commit that
+  // landing is about to rewrite into new SHAs and then delete, leaving the
+  // watermark naming a commit no branch reaches. Refuse before copying
+  // anything; per-file sow is unaffected (it returns above, and never stamps).
+  const valley = getValleyDir()
+  const mainCheckout = getWatermarkDir()
+  if (mainCheckout !== valley) {
+    console.error(`Error: refusing a wholesale sow from the linked worktree ${valley}.`)
+    console.error(`Run it from the main checkout (${mainCheckout}), or sow individual paths: wildflower sow <path>`)
+    process.exit(2)
   }
 
   const copyOptions = {
@@ -74,9 +88,8 @@ export async function sow(targets = null) {
     }
 
     // Records HEAD at sow time as the watermark; a valid 3-way merge base only
-    // when the valley working tree was clean at sow. Only wholesale sow should
-    // advance it — a future per-file sow must NOT write it. Sow is wholesale-only
-    // today, so this single call site is correct.
+    // when the valley working tree was clean at sow. Only wholesale sow advances
+    // it - per-file sow returns above, before this point.
     writeSyncMetadata()
 
     console.log('Done sowing.')

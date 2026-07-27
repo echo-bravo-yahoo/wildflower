@@ -6,6 +6,7 @@ import { gather } from "./gather.js";
 import { till } from "./till.js";
 import { pathCmd } from "./path.js";
 import { diff } from "./diff.js";
+import { status } from "./status.js";
 import packageJson from './package.json' with { type: 'json' };
 
 updateNotifier({ pkg: packageJson }).notify()
@@ -18,6 +19,7 @@ Commands:
   gather [<path>...]   Copy live FS → meadows. With no args, wholesale.
   sow    [<path>...]   Copy meadows → live FS. With no args, wholesale.
   diff   [<path>...]   Report live-vs-meadows divergence. Read-only.
+  status [<path>...]   Classify tracked paths against the sync watermark.
   path   <path>...     Map a tracked path between live FS and meadows form.
   till                 Initialize a sample meadows.mjs.
   version              Print version.
@@ -47,6 +49,30 @@ never mutates. Honors each meadow's filter, so excluded paths (e.g.
               report which files differ).
 
 Exit codes: 0 = identical, 1 = differ, 2 = path not tracked / error.`,
+  status: `wildflower status [<path>...] [--porcelain|--json]
+
+Classify each tracked path against the sync watermark (.wildflower-state.json,
+the commit the live filesystem was last sown to). Read-only; never mutates.
+Where diff reports that two files differ, status reports which side moved:
+
+  synced    live content equals the mirror
+  behind    live differs from the mirror but matches the watermark's blob, so
+            the mirror moved on and live is merely un-sown
+  ahead     live differs from both, so it was edited live since the last sow
+  missing   the mirror tracks it, the live filesystem doesn't have it
+  unknown   no watermark, or the watermark commit is unreachable
+
+Honors each meadow's filter and \`if\` condition. Files are enumerated from the
+mirror, so a live-only file that was never gathered is out of scope (sow won't
+touch it either); use \`diff\` to see those. With no <path>, checks every meadow.
+
+  --porcelain   Emit \`STATE<tab>path\`, listing only paths that aren't synced.
+  --json        Emit the watermark, the state counts, and every tracked path.
+
+Default output lists the paths that aren't synced, then a count line.
+
+Exit codes: 0 = nothing ahead, 1 = at least one path ahead, 2 = a named path
+isn't tracked / the valley isn't a git repo.`,
   path: `wildflower path <path>...
 
 Map tracked path(s) between live-FS form and meadows-mirror form. Pure: reads
@@ -79,6 +105,11 @@ if (command && COMMAND_HELP[command] && wantsHelp(rest)) {
   const verbose = rest.includes('--verbose')
   const paths = rest.filter((a) => a !== '--verbose')
   await diff(paths.length > 0 ? paths : null, { verbose })
+} else if (command === 'status') {
+  const porcelain = rest.includes('--porcelain')
+  const json = rest.includes('--json')
+  const paths = rest.filter((a) => a !== '--porcelain' && a !== '--json')
+  await status(paths.length > 0 ? paths : null, { porcelain, json })
 } else if (command === 'version' || command === '--version' || command === '-v') {
   console.log(VERSION)
 } else if (command === 'help' || command === '--help' || command === '-h') {

@@ -57,24 +57,42 @@ export function getValleyDir() {
 }
 
 /**
- * Records the commit the live filesystem was synced to, written to the valley
- * root after a wholesale sow. This watermark is the merge base for a later
- * 3-way merge when the live filesystem and the mirror diverge. Self-contained
- * try/catch: a non-git valley or git failure degrades gracefully and never
- * aborts a sow.
+ * Directory that owns the sync watermark. All worktrees of a valley share one
+ * home directory, so they must share one watermark: `--git-common-dir` points
+ * at the main checkout's `.git` from anywhere, and its parent is the main
+ * checkout. For a plain (non-worktree) checkout this resolves to the valley
+ * itself, so hosts see no change.
+ */
+export function getWatermarkDir() {
+  const valley = getValleyDir()
+  try {
+    const common = execSync('git rev-parse --git-common-dir', { cwd: valley, stdio: ['ignore', 'pipe', 'ignore'] })
+      .toString().trim()
+    return path.dirname(path.resolve(valley, common))
+  } catch {
+    return valley // not a git repo; behave as before
+  }
+}
+
+/**
+ * Records the commit the live filesystem was synced to, written to the main
+ * checkout's root after a wholesale sow. This watermark is the merge base for a
+ * later 3-way merge when the live filesystem and the mirror diverge.
+ * Self-contained try/catch: a non-git valley or git failure degrades gracefully
+ * and never aborts a sow.
  */
 export function writeSyncMetadata() {
-  const valley = getValleyDir()
+  const dir = getWatermarkDir()
   let commit
   try {
-    commit = execSync('git rev-parse HEAD', { cwd: valley, stdio: ['ignore', 'pipe', 'ignore'] })
+    commit = execSync('git rev-parse HEAD', { cwd: dir, stdio: ['ignore', 'pipe', 'ignore'] })
       .toString().trim()
   } catch {
     console.error('Warning: valley is not a git repo or HEAD unreadable; skipping sync metadata.')
     return
   }
   const meta = { commit, sownAt: new Date().toISOString(), wildflowerVersion: packageJson.version }
-  fs.writeFileSync(path.join(valley, '.wildflower-state.json'), JSON.stringify(meta, null, 2) + '\n')
+  fs.writeFileSync(path.join(dir, '.wildflower-state.json'), JSON.stringify(meta, null, 2) + '\n')
 }
 
 export function buildCopyOptions(baseOptions, meadow) {
@@ -194,6 +212,15 @@ export function matchesFilter(filter, relPath) {
   if (Array.isArray(filter)) return maximatch([relPath], filter).length > 0
   if (typeof filter === 'function') return filter(relPath)
   return true
+}
+
+// Path of `p` relative to `root` (posix), or null if not under root. Lives here
+// rather than in diff.js so status.js can reach it without importing diff.js,
+// whose module-level runDirectly() block would run a diff on the way past.
+export function relUnder(p, root) {
+  if (p === root) return ''
+  if (p.startsWith(root + path.sep)) return p.slice(root.length + 1).split(path.sep).join('/')
+  return null
 }
 
 // Copy a single tracked path (file or subtree) between the live filesystem and

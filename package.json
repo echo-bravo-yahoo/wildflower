@@ -1,6 +1,6 @@
 {
   "name": "wildflower",
-  "version": "3.1.1",
+  "version": "3.2.0",
   "type": "module",
   "description": "an unopinionated tool for managing your dotflowers",
   "main": "wildflower.js",
@@ -17,6 +17,7 @@
     "gather.js",
     "path.js",
     "sow.js",
+    "status.js",
     "till.js",
     "wildflower.js",
     "install.sh",

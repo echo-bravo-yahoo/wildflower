@@ -3,7 +3,10 @@
 import { spawn } from 'node:child_process'
 import * as fs from 'node:fs'
 import path from 'node:path'
-import { parseMeadows, fixInstalledPath, fixSourceControlPath, findMeadowForPath, matchesFilter, runDirectly } from './common.js'
+import { parseMeadows, fixInstalledPath, fixSourceControlPath, findMeadowForPath, matchesFilter, relUnder, runDirectly } from './common.js'
+
+// Re-exported for callers (and tests) that have always reached for it here.
+export { relUnder }
 
 /**
  * `wildflower diff [<path>...] [--verbose]` — report live FS vs meadows-mirror
@@ -114,13 +117,6 @@ export async function diff(targets = null, { verbose = false } = {}) {
   }
 
   process.exit(aggregateExit)
-}
-
-// Path of `p` relative to `root` (posix), or null if not under root.
-export function relUnder(p, root) {
-  if (p === root) return ''
-  if (p.startsWith(root + path.sep)) return p.slice(root.length + 1).split(path.sep).join('/')
-  return null
 }
 
 // Parse a `diff -rq` line into { path, a, b }: `path` is the filesystem path the
