@@ -1,8 +1,9 @@
 ## Basic usage:
+
 ### First time users
 
 1. Install node.
-2. Install wildflower globally with `npm install --global https://github.com/echo-bravo-yahoo/wildflower`. If you prefer, you can clone this repository and install its dependencies instead with `git clone git@github.com:echo-bravo-yahoo/wildflower.git && cd wildflower && npm install`.
+2. Install wildflower globally with `npm install --global wildflower`. If you prefer, you can clone this repository and install its dependencies instead with `git clone git@github.com:echo-bravo-yahoo/wildflower.git && cd wildflower && npm install`.
 3. From the parent directory of where you would like to store your version-controllable dotfiles, run `wildflower till`. This will create a directory named `valley` containing a sample config file named `meadows.mjs` and a directory to store dotfiles in named `meadows`. Skip down to [the filesystem section](#Filesystem) for a full description.
 4. Add descriptions of the files you want to gather to `valley/meadows.mjs`.
 5. Run `wildflower gather`. This will collect all the files you specified in `valley/meadows.mjs` into the `valley/meadows` directory. Files in your home directory (`~`) will be stored in `valley/meadows/~~`; everything else will be stored by its verbatim path.
@@ -11,12 +12,14 @@
 ### Returning users on a new device
 
 1. Install node.
-2. Install wildflower globally with `npm install --global https://github.com/echo-bravo-yahoo/wildflower`. If you prefer, you can clone this repository and install its dependencies instead with `git clone git@github.com:echo-bravo-yahoo/wildflower.git && cd wildflower && npm install`.
+2. Install wildflower globally with `npm install --global wildflower`. If you prefer, you can clone this repository and install its dependencies instead with `git clone git@github.com:echo-bravo-yahoo/wildflower.git && cd wildflower && npm install`.
 3. Pull in your existing `valley` directory using the version control or backup tool you selected [earlier](#first-time-users).
 4. Run `wildflower sow` to distribute your config files.
 
 ## Valleys
+
 The filesystem you should have after tilling will look something like:
+
 ```
 .../
   valley/        # choose where you want to root this directory by running till from ...
@@ -32,7 +35,7 @@ A valley (the folder where your meadows are) can be located in one of three plac
 
 After every `sow`, wildflower writes `.wildflower-state.json` at the valley root, recording the commit the live filesystem was synced to. It is per-machine state: if you version your valley with git, ignore this file.
 
-If your valley is a git repo, that recorded commit is the **merge base** when the live filesystem and the mirror diverge. The base turns an ambiguous live-vs-`HEAD` diff into a well-defined 3-way merge (base = last-sown commit, *ours* = live FS, *theirs* = current `HEAD`):
+If your valley is a git repo, that recorded commit is the **merge base** when the live filesystem and the mirror diverge. The base turns an ambiguous live-vs-`HEAD` diff into a well-defined 3-way merge (base = last-sown commit, _ours_ = live FS, _theirs_ = current `HEAD`):
 
 | live vs base | HEAD vs base | meaning | action |
 | --- | --- | --- | --- |
@@ -55,17 +58,19 @@ git merge-file ~/.someconfig /tmp/wf-base /tmp/wf-theirs   # edits ~/.someconfig
 
 You can currently define two types of meadows: `path`s, which allow you to easily copy and manage files and folders, and `run`s, which allow you to run arbitrary commands.
 
-### Copying files 
+### Copying files
 
 You can copy either files or folders by setting a `path` property that defines where on disk to find the files to copy. In the case of folders, you can filter out the contents using globs.
 
 Example copying files:
+
 ```js
 { path: `~/Library/Preferences/at.obdev.LaunchBar.plist` },
 { path: `~/Library/Preferences/at.obdev.LaunchBar.ActionEditor.plist` },
 ```
 
 Example copying folders:
+
 ```js
 {
   path: `~/Library/Application Support/LaunchBar`,
@@ -77,7 +82,7 @@ Example copying folders:
     // if you're using git to store these, you can skip the directory ignore
     '!**/node_modules',
     '!**/node_modules/**',
-    
+
     // note specific files
     `!Habits.plist`,
     `!Recent Documents.plist`
@@ -87,7 +92,7 @@ Example copying folders:
 
 ### Running functions
 
-You can run arbitrary javascript (and therefore shell commands) to perform some task using the `gather` and `sow` properties, which run on their respective wildflower commands. 
+You can run arbitrary javascript (and therefore shell commands) to perform some task using the `gather` and `sow` properties, which run on their respective wildflower commands.
 
 `zsh`, `bash`, `shell`, and `run` functions are provided globally to allow for easy shell access.
 
@@ -109,10 +114,10 @@ When combined with paths, both `gather` and `sow` recieve the paths of the final
 
 ```js
 {
-  path: '/path/to/folder'
+  path: "/path/to/folder";
   gather: (arrayOfFilesWeCopied) => {
-    console.log(arrayOfFilesWeCopied)
-  }
+    console.log(arrayOfFilesWeCopied);
+  };
 }
 ```
 
@@ -134,6 +139,7 @@ wildflower diff                            # all meadows
 ```
 
 Targeted operations:
+
 - Skip meadow-level `if` conditions and `meadow.gather()` / `meadow.sow()` callbacks (those are whole-meadow semantics; the user named the file explicitly).
 - Ignore meadow filters when an explicit path is given. Filters exist to restrict wholesale recursion; when a path is named on the CLI, it's gathered/sowed as-is.
 - Preserve symlinks (`expand: false` in both directions).
@@ -157,6 +163,7 @@ Exits non-zero if the path isn't covered by any meadow.
 ## `wildflower diff`
 
 Reports divergence between live FS and the meadows mirror. Read-only; never mutates. Exit codes:
+
 - `0` — all checked paths identical
 - `1` — at least one divergence
 - `2` — at least one path not tracked, or other error
@@ -164,9 +171,10 @@ Reports divergence between live FS and the meadows mirror. Read-only; never muta
 Implementation delegates to `diff -rq` per pair.
 
 ## Todo:
-- Add ability for wildflower to run commands 
+
+- Add ability for wildflower to run commands
   - Note that the `sow` step current runs commands, but the `gather` step does not.
-- Add some kind of ordering/dependency mechanism (wait for 'x' before doing 'y'.) 
+- Add some kind of ordering/dependency mechanism (wait for 'x' before doing 'y'.)
   - Note that the `sow` step runs in sequence, but the `gather` step runs in parallel.
 - Improve runtime perf (parallelize async fs operations)
 - Add runtime perf / debugging utilities
