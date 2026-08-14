@@ -13,6 +13,10 @@ const {
   matchesFilter,
   buildCopyOptions,
   findMeadowForPath,
+  resolveBranchKey,
+  resolveSowSource,
+  hostname,
+  stripLocalSuffix,
 } = await import('../common.js')
 
 describe('meadowLabel', () => {
@@ -43,6 +47,107 @@ describe('fixSourceControlPath', () => {
     assert.ok(result.startsWith(os.tmpdir()), 'should be under valley dir')
     assert.ok(result.includes('meadows'), 'should be under meadows/')
     assert.ok(result.includes('~~'), 'should double-tilde HOME paths')
+  })
+})
+
+describe('fixSourceControlPath with a branch key', () => {
+  it('splices in ~by~/<key>/ before the ~~ wrap for a string key', () => {
+    const result = fixSourceControlPath(path.join(process.env.HOME, '.gitconfig'), 'stockholm')
+    assert.ok(result.includes(path.join('~by~', 'stockholm', '~~', '.gitconfig')))
+  })
+  it('routes an undefined key to the reserved ~default segment', () => {
+    const result = fixSourceControlPath(path.join(process.env.HOME, '.gitconfig'), undefined)
+    assert.ok(result.includes(path.join('~by~', '~default', '~~', '.gitconfig')))
+  })
+  it('is identical to the no-key form when branchKey is null or omitted', () => {
+    const omitted = fixSourceControlPath(path.join(process.env.HOME, '.gitconfig'))
+    const nulled = fixSourceControlPath(path.join(process.env.HOME, '.gitconfig'), null)
+    assert.equal(omitted, nulled)
+  })
+})
+
+describe('resolveBranchKey', () => {
+  it('returns null when the meadow has no by', async () => {
+    assert.equal(await resolveBranchKey({}), null)
+  })
+  it('trims a sync by()', async () => {
+    assert.equal(await resolveBranchKey({ by: () => '  heron  ' }), 'heron')
+  })
+  it('awaits an async by()', async () => {
+    assert.equal(await resolveBranchKey({ by: async () => 'heron' }), 'heron')
+  })
+  it('resolves to undefined when by() returns undefined', async () => {
+    assert.equal(await resolveBranchKey({ by: () => undefined }), undefined)
+  })
+  it('resolves to undefined when by() returns null', async () => {
+    assert.equal(await resolveBranchKey({ by: () => null }), undefined)
+  })
+  it('memoizes by function reference -- evaluates once across repeated calls', async () => {
+    let calls = 0
+    const by = () => {
+      calls++
+      return 'heron'
+    }
+    await resolveBranchKey({ by })
+    await resolveBranchKey({ by })
+    await resolveBranchKey({ by })
+    assert.equal(calls, 1)
+  })
+  it('does not share cache across distinct function references', async () => {
+    let calls = 0
+    const makeBy = () => () => {
+      calls++
+      return 'heron'
+    }
+    await resolveBranchKey({ by: makeBy() })
+    await resolveBranchKey({ by: makeBy() })
+    assert.equal(calls, 2)
+  })
+  it('rejects an empty (or whitespace-only) key', async () => {
+    await assert.rejects(() => resolveBranchKey({ by: () => '   ' }))
+  })
+  it('rejects a key containing a slash', async () => {
+    await assert.rejects(() => resolveBranchKey({ by: () => 'foo/bar' }))
+  })
+  it('rejects a key of ..', async () => {
+    await assert.rejects(() => resolveBranchKey({ by: () => '..' }))
+  })
+  it('rejects reserved segment names, including ~default', async () => {
+    await assert.rejects(() => resolveBranchKey({ by: () => '~by~' }))
+    await assert.rejects(() => resolveBranchKey({ by: () => '~~' }))
+    await assert.rejects(() => resolveBranchKey({ by: () => '~default' }))
+  })
+})
+
+describe('resolveSowSource', () => {
+  it('returns the plain path unchanged when branchKey is null (no by)', () => {
+    const meadow = { path: '~/.zshrc' }
+    const source = resolveSowSource(meadow, null)
+    assert.equal(source.from, fixSourceControlPath('~/.zshrc'))
+    assert.equal(source.usingDefault, false)
+  })
+  it('routes to ~default and flags usingDefault when branchKey is undefined', () => {
+    const meadow = { path: '~/.gitconfig' }
+    const source = resolveSowSource(meadow, undefined)
+    assert.equal(source.from, fixSourceControlPath('~/.gitconfig', undefined))
+    assert.ok(source.from.includes(path.join('~by~', '~default')))
+    assert.equal(source.usingDefault, true)
+  })
+  it('reports exists: false when nothing is on disk for a given key', () => {
+    const meadow = { path: '~/.nonexistent-for-test' }
+    const source = resolveSowSource(meadow, 'nobody-has-gathered-this-key')
+    assert.equal(source.from, fixSourceControlPath('~/.nonexistent-for-test', 'nobody-has-gathered-this-key'))
+    assert.equal(source.usingDefault, false)
+    assert.equal(source.exists, false)
+  })
+})
+
+describe('stripLocalSuffix', () => {
+  it('strips a trailing .local', () => {
+    assert.equal(stripLocalSuffix('macbook.local'), 'macbook')
+  })
+  it('leaves non-.local names untouched', () => {
+    assert.equal(stripLocalSuffix('heron'), 'heron')
   })
 })
 
@@ -109,5 +214,14 @@ describe('findMeadowForPath', () => {
     const match = findMeadowForPath(target, meadows)
     assert.ok(match)
     assert.equal(match.meadow.path, '~/')
+  })
+
+  it('strips a ~by~/<key>/ prefix on reverse mapping, for any key (transparent read)', () => {
+    const mirrorPath = fixSourceControlPath(path.join(home, '.config/nvim/init.lua'), 'some-other-host')
+    const match = findMeadowForPath(mirrorPath, meadows)
+    assert.ok(match)
+    assert.equal(match.meadow.path, '~/.config/nvim')
+    assert.equal(match.absolute, path.join(home, '.config/nvim/init.lua'))
+    assert.equal(match.foreignBranchKey, 'some-other-host')
   })
 })
