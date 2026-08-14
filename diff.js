@@ -41,11 +41,8 @@ export async function diff(targets = null, { verbose = false } = {}) {
       const rel = match.absolute.slice(match.installed.length)
       let branchKey
       try {
-        // Honor a foreign key explicitly named in the target (e.g. a mirror
-        // path under ~by~/other-host/, or ~by~/~default/ itself); otherwise
-        // this host's own key (possibly undefined, which fixSourceControlPath
-        // below correctly routes to ~default too). copyPath (gather/sow)
-        // intentionally never does this.
+        // Honor an explicitly named foreign key; otherwise this host's own.
+        // gather/sow (copyPath) never do this -- see common.js.
         branchKey = match.foreignBranchKey ?? await resolveBranchKey(match.meadow)
       } catch (error) {
         console.error(`Skipping '${target}': by() failed: ${error.message}`)

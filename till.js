@@ -19,15 +19,8 @@ export const meadows = [
     path: '~/.zshrc'
   },
 
-  // copy in a file, but split by a resolved key ("by") -- e.g. per-host.
-  // Each key's variant lives side by side in the mirror under
-  // meadows/~by~/<key>/, so switching hosts never overwrites another
-  // host's variant. If by() returns undefined (e.g. an unlisted host
-  // falling out of a lookup table), sow reads a shared '~default' variant
-  // instead, when one exists -- gather never writes there. NOT a secrecy
-  // mechanism -- every key's variant is still committed to the same shared
-  // repo; use \`filter\` (e.g. '!*-tokens.json') to keep something out of
-  // the mirror entirely.
+  // copy in a file, but split per-host: each host gets its own committed
+  // variant under meadows/~by~/<key>/. See README for the ~default fallback.
   {
     path: '~/.gitconfig',
     by: () => hostname(),

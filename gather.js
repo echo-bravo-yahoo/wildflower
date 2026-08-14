@@ -47,9 +47,8 @@ export async function gather(targets = null) {
         continue
       }
 
-      // SAFETY: same refusal as copyPath (see common.js) -- gather never
-      // writes to ~default. Checked before capableOfGather so the "isn't
-      // capable of it" message below can't mask this case.
+      // Checked before capableOfGather so the "isn't capable" message
+      // below can't mask this refusal.
       if (shouldGather && branchKey === undefined) {
         console.log(`Skipping ${meadowLabel(meadow, index)} -- by() returned no identity for this host; nothing to gather into.`)
         continue

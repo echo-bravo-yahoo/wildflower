@@ -3,7 +3,7 @@
 ### First time users
 
 1. Install node.
-2. Install wildflower globally with `npm install --global https://github.com/echo-bravo-yahoo/wildflower`. If you prefer, you can clone this repository and install its dependencies instead with `git clone git@github.com:echo-bravo-yahoo/wildflower.git && cd wildflower && npm install`.
+2. Install wildflower globally with `npm install --global wildflower`. If you prefer, you can clone this repository and install its dependencies instead with `git clone git@github.com:echo-bravo-yahoo/wildflower.git && cd wildflower && npm install`.
 3. From the parent directory of where you would like to store your version-controllable dotfiles, run `wildflower till`. This will create a directory named `valley` containing a sample config file named `meadows.mjs` and a directory to store dotfiles in named `meadows`. Skip down to [the filesystem section](#Filesystem) for a full description.
 4. Add descriptions of the files you want to gather to `valley/meadows.mjs`.
 5. Run `wildflower gather`. This will collect all the files you specified in `valley/meadows.mjs` into the `valley/meadows` directory. Files in your home directory (`~`) will be stored in `valley/meadows/~~`; everything else will be stored by its verbatim path.
@@ -12,7 +12,7 @@
 ### Returning users on a new device
 
 1. Install node.
-2. Install wildflower globally with `npm install --global https://github.com/echo-bravo-yahoo/wildflower`. If you prefer, you can clone this repository and install its dependencies instead with `git clone git@github.com:echo-bravo-yahoo/wildflower.git && cd wildflower && npm install`.
+2. Install wildflower globally with `npm install --global wildflower`. If you prefer, you can clone this repository and install its dependencies instead with `git clone git@github.com:echo-bravo-yahoo/wildflower.git && cd wildflower && npm install`.
 3. Pull in your existing `valley` directory using the version control or backup tool you selected [earlier](#first-time-users).
 4. Run `wildflower sow` to distribute your config files.
 

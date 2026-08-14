@@ -114,21 +114,15 @@ export function fixInstalledPath(filepath) {
   return filepath
 }
 
-export function fixSourceControlPath(filepath, branchKey) {
+export function fixSourceControlPath(filepath, ...rest) {
   // transform ~/ into ~~/ for safety
   if (filepath.length && filepath.startsWith(process.env['HOME'])) filepath = "~" + filepath.slice(process.env['HOME'].length)
   if (filepath.length && filepath[0] == `~`) filepath = `~${filepath}`
-  // A *two-argument* call with branchKey === undefined means "branching,
-  // but no identity this run" (see resolveBranchKey) -- route it to the
-  // reserved '~default' subtree. Omitting the argument entirely, or
-  // passing null explicitly, means "not branching at all" -- no ~by~
-  // prefix, same as today. These must be told apart by arity (via
-  // `arguments.length`), not a `branchKey = null` default parameter:
-  // JS defaults trigger identically for an omitted argument and an
-  // explicitly-passed `undefined`, which would silently collapse
-  // resolveBranchKey's real "no identity" signal back into "not
-  // branching" -- exactly the bug this arity check avoids.
-  const effectiveKey = arguments.length >= 2 && branchKey === undefined ? '~default' : branchKey
+  // branchKey omitted entirely, or explicitly null, means "not branching".
+  // Explicitly undefined (distinct from omitted -- see rest.length below)
+  // means "branching, no identity" and routes to ~default.
+  const branchKey = rest[0]
+  const effectiveKey = rest.length && branchKey === undefined ? '~default' : branchKey
   const branchPrefix = effectiveKey ? path.join('~by~', effectiveKey) : ''
   return path.join(getValleyDir(), "/meadows", branchPrefix, filepath)
 }
@@ -151,13 +145,10 @@ export function findMeadowForPath(targetPath, meadows) {
   let foreignBranchKey = null
   if (abs === meadowsRoot || abs.startsWith(meadowsRoot + '/')) {
     let mirrorRel = abs.slice(meadowsRoot.length).replace(/^\/+/, '')
-    // Transparently strip a `~by~/<key>/` branch prefix, capturing
-    // whichever key it named -- regardless of whether it matches this
-    // host's own resolved key. Reads (path/diff) may use the captured key
-    // to inspect a foreign host's committed variant explicitly; gather/sow
-    // (copyPath) MUST NEVER read this field -- they always resolve their
-    // own key via resolveBranchKey(meadow) instead. This is the
-    // read/write safety split the whole feature depends on.
+    // Strip a `~by~/<key>/` branch prefix, capturing the key so read-only
+    // commands (path/diff) can inspect a foreign host's variant. gather/sow
+    // (copyPath) must never read foreignBranchKey -- they always resolve
+    // their own key via resolveBranchKey(meadow) instead.
     const byMatch = mirrorRel.match(/^~by~\/([^/]+)\//)
     if (byMatch) {
       foreignBranchKey = byMatch[1]
@@ -208,11 +199,7 @@ export async function mapPath(targetPath) {
     // input is meadows-side -> return live FS path
     return match.absolute
   }
-  // input is live FS -> return meadow mirror path, using this host's own
-  // resolved key (a live-FS input never carries a foreign key). If
-  // resolveBranchKey comes back undefined, this correctly reports the
-  // ~default location -- the only real location involved when there's no
-  // identity, even though `gather` (unlike `sow`) will refuse to use it.
+  // input is live FS -> return meadow mirror path, in this host's own key
   const rel = match.absolute.slice(match.installed.length)
   const branchKey = await resolveBranchKey(match.meadow)
   return fixSourceControlPath(match.meadow.path, branchKey) + rel
@@ -227,35 +214,17 @@ export function matchesFilter(filter, relPath) {
   return true
 }
 
-// Reserved mirror-side path segments a resolved `by` key must never
-// collide with. '~by~' and '~~' would corrupt path parsing if used as a
-// real key. '~default' is reserved so it can only ever be reached via
-// by() returning undefined/null (see resolveBranchKey) -- never via an
-// ordinary string -- which keeps "gather can never write to ~default"
-// true regardless of what any resolver's string output happens to be.
+// A resolved `by` key can never collide with the ~by~/~~ mirror-path
+// syntax or the ~default fallback (see resolveBranchKey).
 const RESERVED_BRANCH_SEGMENTS = new Set(['~by~', '~~', '~default'])
 
-// Per-run memoization of `by` resolvers, keyed by function *reference*
-// (not resolved value): meadows sharing one resolver reference evaluate it
-// once; distinct references (even resolving to the same string) evaluate
-// independently. Caches the resolution promise itself so a slow/async
-// resolver shared by two meadows only ever runs once even if both are
-// awaited before the first resolves.
+// Memoized by `by` function reference (not resolved value), so a resolver
+// shared across meadows only ever runs once.
 const branchKeyCache = new Map()
 
-/**
- * Resolve and memoize a meadow's `by` resolver. Three possible outcomes:
- *   - null: the meadow has no `by` at all -- not branching.
- *   - undefined: the meadow has `by`, and it resolved to undefined/null --
- *     a deliberate "no identity for this host, right now" signal. sow
- *     falls back to the fixed '~default' subtree if one exists (see
- *     resolveSowSource); gather refuses outright, since there's nowhere
- *     safe for it to write.
- *   - a validated non-empty string: an ordinary per-host key.
- * Rejects if by() throws, or resolves to a defined value that, once
- * trimmed, is empty, contains '/' or '..', or collides with a reserved
- * segment name.
- */
+// Resolves and memoizes a meadow's `by`. Returns null if the meadow isn't
+// branching, undefined if by() resolved to no identity for this host (sow
+// falls back to ~default; gather refuses), or a validated key string.
 export async function resolveBranchKey(meadow) {
   if (!meadow.by) return null
 
@@ -287,12 +256,7 @@ export async function resolveBranchKey(meadow) {
   return branchKeyCache.get(meadow.by)
 }
 
-// Given a meadow and its resolveBranchKey() outcome, decide what `sow`
-// should read from, and whether it's actually there. branchKey undefined
-// routes to the fixed '~default' subtree (see resolveBranchKey and the
-// RESERVED_BRANCH_SEGMENTS comment above for why gather can never have put
-// anything there itself). branchKey a string, or null (unbranched),
-// resolves to that key's/plain's own path, unchanged from today.
+// What `sow` should read from for a meadow, and whether it's there.
 export function resolveSowSource(meadow, branchKey) {
   const from = fixSourceControlPath(meadow.path, branchKey)
   return {
@@ -327,12 +291,8 @@ export async function copyPath(target, meadows, direction) {
     return 0
   }
 
-  // SAFETY: always resolve *this host's own* branch key via
-  // resolveBranchKey(meadow) -- never match.foreignBranchKey (which
-  // findMeadowForPath captures purely for read-side commands like diff,
-  // see diff.js). Naming a foreign mirror path as a gather/sow target here
-  // is equivalent to naming its live-FS counterpart: it still only ever
-  // reads or writes this host's own branch subtree, never another host's.
+  // Always resolve this host's own key, never match.foreignBranchKey --
+  // that field exists only for read-side commands like diff.
   let branchKey
   try {
     branchKey = await resolveBranchKey(meadow)
@@ -341,9 +301,6 @@ export async function copyPath(target, meadows, direction) {
     return 1
   }
 
-  // SAFETY: gather can never target ~default. by() returning undefined means
-  // this host has no identity for this meadow right now -- there is nowhere
-  // safe to write, so refuse before any destination path is even computed.
   if (direction === 'gather' && branchKey === undefined) {
     console.error(`Skipping '${absolute}' -- ${meadowLabel(meadow, index)}'s by() returned no identity for this host; there is nowhere safe to gather to. (Only 'sow' can read the shared '~default' variant.)`)
     return 1
@@ -376,10 +333,6 @@ export async function copyPath(target, meadows, direction) {
 
   // Copy from the meadow root (not the named subtree) so meadow-root-relative
   // filter globs evaluate correctly; the filter narrows to the target.
-  // SAFETY: `to`, for gather, is safe by construction -- the refusal check
-  // above already returned when branchKey === undefined, so branchKey here
-  // is guaranteed to be null or a valid string; fixSourceControlPath can
-  // never land on ~default for a gather.
   const to = direction === 'gather' ? fixSourceControlPath(meadow.path, branchKey) : fixInstalledPath(meadow.path)
 
   let from
@@ -549,17 +502,12 @@ export async function run(
   })
 }
 
-// Exported separately so the trailing-.local rule is unit-testable without
-// mocking os.hostname().
 export function stripLocalSuffix(name) {
   return name.endsWith('.local') ? name.slice(0, -'.local'.length) : name
 }
 
-// Convenience global for `by` resolvers: os.hostname() with a trailing
-// .local stripped (macOS/mDNS commonly appends it, Linux/WSL typically
-// don't -- stripping keeps the same physical host resolving to one key
-// regardless of platform). Write your own resolver if you want the raw
-// value instead.
+// Convenience `by` global. Strips the trailing .local macOS/mDNS commonly
+// appends (Linux/WSL typically don't), so the same host resolves to one key.
 export function hostname() {
   return stripLocalSuffix(os.hostname())
 }

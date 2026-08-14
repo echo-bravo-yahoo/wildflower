@@ -6,10 +6,10 @@ install_wildflower() {
 
   if [[ $has_wildflower == 0 ]]; then
     local local_version=$(wildflower version 2>/dev/null)
-    local remote_version=$(npm info github:echo-bravo-yahoo/wildflower version)
+    local remote_version=$(npm info wildflower version)
     if [[ ! $local_version == $remote_version ]]; then
       echo "Updating wildflower…"
-      npm i -g github:echo-bravo-yahoo/wildflower || {
+      npm i -g wildflower || {
         echo "Failed to update wildflower. Exiting!"
         exit 1
       }
@@ -18,7 +18,7 @@ install_wildflower() {
     fi
   else
     echo "Installing wildflower…"
-    npm i -g github:echo-bravo-yahoo/wildflower || {
+    npm i -g wildflower || {
       echo "Failed to install wildflower. Exiting!"
       exit 1
     }
