@@ -14,15 +14,32 @@ export const meadows = [
   { path: '~/.zshrc' },
 
   // copy in a file, but only on linux
-  { 
-    if: () => linux
-    path: '~/.zshrc' 
+  {
+    if: () => linux,
+    path: '~/.zshrc'
+  },
+
+  // copy in a file, but split by a resolved key ("by") -- e.g. per-host.
+  // Each key's variant lives side by side in the mirror under
+  // meadows/~by~/<key>/, so switching hosts never overwrites another
+  // host's variant. If by() returns undefined (e.g. an unlisted host
+  // falling out of a lookup table), sow reads a shared '~default' variant
+  // instead, when one exists -- gather never writes there. NOT a secrecy
+  // mechanism -- every key's variant is still committed to the same shared
+  // repo; use \`filter\` (e.g. '!*-tokens.json') to keep something out of
+  // the mirror entirely.
+  {
+    path: '~/.gitconfig',
+    by: () => hostname(),
   },
 
   // copy in a folder, but exclude subfolders
   {
     path: '~/some/folder',
     filter: [
+      // required to work
+      '**/**',
+
       // folders need !Folder (for the directory itself) and !Folder/** (for it's files)
       // if you're using git to store these, you can skip the directory ignore
 
@@ -34,7 +51,7 @@ export const meadows = [
       '!**/this_folder/**',
     ]
   },
-])
+]
 `.trim()
 
   try {
