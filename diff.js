@@ -3,7 +3,7 @@
 import { spawn } from 'node:child_process'
 import * as fs from 'node:fs'
 import path from 'node:path'
-import { parseMeadows, fixInstalledPath, fixSourceControlPath, findMeadowForPath, matchesFilter, runDirectly } from './common.js'
+import { parseMeadows, fixInstalledPath, fixSourceControlPath, findMeadowForPath, matchesFilter, runDirectly, resolveBranchKey, meadowLabel } from './common.js'
 
 /**
  * `wildflower diff [<path>...] [--verbose]` — report live FS vs meadows-mirror
@@ -39,11 +39,24 @@ export async function diff(targets = null, { verbose = false } = {}) {
         continue
       }
       const rel = match.absolute.slice(match.installed.length)
+      let branchKey
+      try {
+        // Honor a foreign key explicitly named in the target (e.g. a mirror
+        // path under ~by~/other-host/, or ~by~/~default/ itself); otherwise
+        // this host's own key (possibly undefined, which fixSourceControlPath
+        // below correctly routes to ~default too). copyPath (gather/sow)
+        // intentionally never does this.
+        branchKey = match.foreignBranchKey ?? await resolveBranchKey(match.meadow)
+      } catch (error) {
+        console.error(`Skipping '${target}': by() failed: ${error.message}`)
+        resolveErrors = 1
+        continue
+      }
       pairs.push({
         live: match.absolute,
-        meadow: fixSourceControlPath(match.meadow.path) + rel,
+        meadow: fixSourceControlPath(match.meadow.path, branchKey) + rel,
         root: match.installed,
-        mirrorRoot: fixSourceControlPath(match.meadow.path),
+        mirrorRoot: fixSourceControlPath(match.meadow.path, branchKey),
         filter: match.meadow.filter,
       })
     }
@@ -51,13 +64,20 @@ export async function diff(targets = null, { verbose = false } = {}) {
       process.exit(2)
     }
   } else {
-    for (const meadow of meadows) {
+    for (const [index, meadow] of Object.entries(meadows)) {
       if (!meadow.path) continue
+      let branchKey
+      try {
+        branchKey = await resolveBranchKey(meadow)
+      } catch (error) {
+        console.error(`Skipping ${meadowLabel(meadow, index)}: by() failed: ${error.message}`)
+        continue
+      }
       pairs.push({
         live: fixInstalledPath(meadow.path),
-        meadow: fixSourceControlPath(meadow.path),
+        meadow: fixSourceControlPath(meadow.path, branchKey),
         root: path.resolve(fixInstalledPath(meadow.path)),
-        mirrorRoot: fixSourceControlPath(meadow.path),
+        mirrorRoot: fixSourceControlPath(meadow.path, branchKey),
         filter: meadow.filter,
       })
     }
