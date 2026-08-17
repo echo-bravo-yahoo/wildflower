@@ -14,15 +14,25 @@ export const meadows = [
   { path: '~/.zshrc' },
 
   // copy in a file, but only on linux
-  { 
-    if: () => linux
-    path: '~/.zshrc' 
+  {
+    if: () => linux,
+    path: '~/.zshrc'
+  },
+
+  // copy in a file, but split per-host: each host gets its own committed
+  // variant under meadows/~by~/<key>/. See README for the ~default fallback.
+  {
+    path: '~/.gitconfig',
+    by: () => hostname(),
   },
 
   // copy in a folder, but exclude subfolders
   {
     path: '~/some/folder',
     filter: [
+      // required to work
+      '**/**',
+
       // folders need !Folder (for the directory itself) and !Folder/** (for it's files)
       // if you're using git to store these, you can skip the directory ignore
 
@@ -34,7 +44,7 @@ export const meadows = [
       '!**/this_folder/**',
     ]
   },
-])
+]
 `.trim()
 
   try {

@@ -114,12 +114,52 @@ When combined with paths, both `gather` and `sow` recieve the paths of the final
 
 ```js
 {
-  path: "/path/to/folder";
+  path: "/path/to/folder",
   gather: (arrayOfFilesWeCopied) => {
     console.log(arrayOfFilesWeCopied);
-  };
+  },
 }
 ```
+
+### Per-host variants (`by`)
+
+A meadow can declare `by: () => string | undefined | Promise<string | undefined>` to keep more than one variant of the same file side by side in the mirror -- most commonly, one variant per host. `by` may be sync or async, and can call out to `bash`/`zsh`/`shell`/`run` (or the `hostname` global below) to compute its key.
+
+```js
+{ path: '~/.gitconfig', by: () => hostname() },
+```
+
+When a meadow has `by`, its mirror-side root gets a `~by~/<key>/` segment spliced in, so each key's variant lands in its own untouched corner of the mirror:
+
+```
+meadows/~by~/stockholm/~~/.gitconfig
+meadows/~by~/heron/~~/.gitconfig
+```
+
+Both are committed side by side in the same repo; nothing is overwritten switching hosts.
+
+The resolved key is trimmed and validated before use: it can't be empty, can't contain `/` or `..`, and can't collide with the reserved segment names `~by~`, `~~`, or `~default`. A `by` function is memoized once per run -- meadows that share the exact same function reference only evaluate it once.
+
+**`by` is not a secrecy mechanism.** Every host's variant is committed to the same shared repo, readable by anyone with access to it -- `by` only keeps variants from colliding, it does not hide them from each other. If something shouldn't be committed at all (a token file, a machine-specific secret), use `filter` to exclude it (e.g. `!*-tokens.json`), the same as any other meadow.
+
+`wildflower path` and `wildflower diff` treat an explicitly-named key as inspectable -- naming another host's mirror path (e.g. `wildflower diff meadows/~by~/heron/~~/.gitconfig`) resolves and diffs it against your live file, whichever key it names. `wildflower gather` and `wildflower sow`, by contrast, only ever read or write _this host's own_ resolved key -- naming another host's mirror path as a gather/sow target is equivalent to naming its live-FS path; it never reads or writes anyone else's variant.
+
+#### The `~default` fallback
+
+If `by()` returns `undefined` (or `null`) -- rather than a string -- that's read as "this meadow branches, but I have no identity for this host right now." The cleanest way to get that for free is a lookup table: any host not listed just falls out the bottom as `undefined`, no extra logic required.
+
+```js
+const hostVariants = { stockholm: 'stockholm', heron: 'heron' }
+by: () => hostVariants[hostname()],
+```
+
+When that happens, `sow` reads from a fixed, reserved subtree, `~by~/~default/`, if something exists there -- and always says so explicitly ("using the shared `~default` variant"), so it's never a silent substitution. If nothing exists there either, `sow` prints the same kind of "nothing to sow" message it always has.
+
+**`~default` is populated only by hand, never by wildflower.** No `gather` -- targeted or wholesale, on any host, under any `by()` outcome -- ever writes to `~by~/~default/`. It's an ordinary path in the git-tracked mirror; put something there the same way you'd populate any other tracked file, for instance by copying an existing host's already-gathered subtree once: `cp -r meadows/~by~/stockholm meadows/~by~/~default`. `~default` is also a reserved segment name, so a resolver can never accidentally (or deliberately) return the literal string `'~default'` as an ordinary key -- the fallback can only ever be reached through the `undefined` signal.
+
+#### The `hostname` global
+
+Alongside `bash`, `zsh`, `shell`, and `run`, meadows.mjs has a `hostname()` global -- a thin wrapper around `os.hostname()` that strips a trailing `.local` (which macOS/mDNS commonly appends but Linux/WSL typically don't, so the same physical machine resolves to one key on either platform). Write your own resolver instead if you want the raw value or something else entirely.
 
 ## Targeted (per-file) operations
 

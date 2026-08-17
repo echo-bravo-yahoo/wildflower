@@ -2,7 +2,7 @@
 
 import copy from 'recursive-copy'
 import * as fs from 'node:fs'
-import { parseMeadows, meadowLabel, curableCopy, copyPath } from './common.js'
+import { parseMeadows, meadowLabel, curableCopy, copyPath, resolveBranchKey } from './common.js'
 import { fixInstalledPath, fixSourceControlPath, logNoSuchFile, buildCopyOptions, runDirectly } from './common.js'
 
 export async function gather(targets = null) {
@@ -36,7 +36,24 @@ export async function gather(targets = null) {
 
   try {
     for (const [index, meadow] of Object.entries(meadows)) {
-      let shouldGather = meadow.if ? await meadow.if?.() : true
+      let shouldGather
+      let branchKey
+      try {
+        shouldGather = meadow.if ? await meadow.if?.() : true
+        branchKey = shouldGather ? await resolveBranchKey(meadow) : null
+      } catch (error) {
+        console.error(`ERROR: ${meadowLabel(meadow, index)} -- 'if' or 'by' threw before this meadow could run; skipping just this meadow.`)
+        console.error(error)
+        continue
+      }
+
+      // Checked before capableOfGather so the "isn't capable" message
+      // below can't mask this refusal.
+      if (shouldGather && branchKey === undefined) {
+        console.log(`Skipping ${meadowLabel(meadow, index)} -- by() returned no identity for this host; nothing to gather into.`)
+        continue
+      }
+
       let capableOfGather = Boolean(meadow.path) || Boolean(meadow.gather)
       if (shouldGather && capableOfGather) {
         let copiedFiles
@@ -45,14 +62,14 @@ export async function gather(targets = null) {
           try {
             let operations = await (meadow.curable ? curableCopy : copy)(
               fixInstalledPath(meadow.path),
-              fixSourceControlPath(meadow.path),
+              fixSourceControlPath(meadow.path, branchKey),
               buildCopyOptions(copyOptions, meadow)
             )
-            
+
             // possibly there's a bug where the operation doesn't work
             copiedFiles = operations.map(operation => operation.dest)
 
-            console.log(`Copied '${fixInstalledPath(meadow.path)}' to '${fixSourceControlPath(meadow.path)}'`)
+            console.log(`Copied '${fixInstalledPath(meadow.path)}' to '${fixSourceControlPath(meadow.path, branchKey)}'`)
           } catch (e) {
             logNoSuchFile(e)
           }
