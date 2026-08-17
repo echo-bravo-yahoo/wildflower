@@ -1,4 +1,5 @@
 import path from 'node:path'
+import os from 'node:os'
 import { spawn, execSync } from 'node:child_process'
 import fs from 'fs'
 import { cp, readdir, stat, statfs } from 'node:fs/promises';
@@ -131,11 +132,17 @@ export function fixInstalledPath(filepath) {
   return filepath
 }
 
-export function fixSourceControlPath(filepath) {
+export function fixSourceControlPath(filepath, ...rest) {
   // transform ~/ into ~~/ for safety
   if (filepath.length && filepath.startsWith(process.env['HOME'])) filepath = "~" + filepath.slice(process.env['HOME'].length)
   if (filepath.length && filepath[0] == `~`) filepath = `~${filepath}`
-  return path.join(getValleyDir(), "/meadows", filepath)
+  // branchKey omitted entirely, or explicitly null, means "not branching".
+  // Explicitly undefined (distinct from omitted -- see rest.length below)
+  // means "branching, no identity" and routes to ~default.
+  const branchKey = rest[0]
+  const effectiveKey = rest.length && branchKey === undefined ? '~default' : branchKey
+  const branchPrefix = effectiveKey ? path.join('~by~', effectiveKey) : ''
+  return path.join(getValleyDir(), "/meadows", branchPrefix, filepath)
 }
 
 /**
@@ -153,9 +160,19 @@ export function findMeadowForPath(targetPath, meadows) {
 
   // If the path is under the meadows/ mirror, map it back to the live FS
   // equivalent first so the lookup logic is single-pass.
+  let foreignBranchKey = null
   if (abs === meadowsRoot || abs.startsWith(meadowsRoot + '/')) {
     let mirrorRel = abs.slice(meadowsRoot.length).replace(/^\/+/, '')
-    // mirrorRel looks like '~~/.zshrc' — strip one `~` so we have `~/.zshrc`
+    // Strip a `~by~/<key>/` branch prefix, capturing the key so read-only
+    // commands (path/diff) can inspect a foreign host's variant. gather/sow
+    // (copyPath) must never read foreignBranchKey -- they always resolve
+    // their own key via resolveBranchKey(meadow) instead.
+    const byMatch = mirrorRel.match(/^~by~\/([^/]+)\//)
+    if (byMatch) {
+      foreignBranchKey = byMatch[1]
+      mirrorRel = mirrorRel.slice(byMatch[0].length)
+    }
+    // mirrorRel looks like '~~/.zshrc' -- strip one `~` so we have `~/.zshrc`
     if (mirrorRel.startsWith('~~')) mirrorRel = mirrorRel.slice(1)
     abs = fixInstalledPath(mirrorRel)
   }
@@ -175,7 +192,7 @@ export function findMeadowForPath(targetPath, meadows) {
     }
   }
   if (!bestMeadow) return null
-  return { meadow: bestMeadow, installed: bestInstalled, absolute: abs }
+  return { meadow: bestMeadow, installed: bestInstalled, absolute: abs, foreignBranchKey }
 }
 
 /**
@@ -197,12 +214,13 @@ export async function mapPath(targetPath) {
   abs = path.resolve(abs)
 
   if (abs === meadowsRoot || abs.startsWith(meadowsRoot + '/')) {
-    // input is meadows-side → return live FS path
+    // input is meadows-side -> return live FS path
     return match.absolute
   }
-  // input is live FS → return meadow mirror path
+  // input is live FS -> return meadow mirror path, in this host's own key
   const rel = match.absolute.slice(match.installed.length)
-  return fixSourceControlPath(match.meadow.path) + rel
+  const branchKey = await resolveBranchKey(match.meadow)
+  return fixSourceControlPath(match.meadow.path, branchKey) + rel
 }
 
 // Evaluate a meadow's filter against a path relative to the meadow root. The
@@ -223,11 +241,63 @@ export function relUnder(p, root) {
   return null
 }
 
+// A resolved `by` key can never collide with the ~by~/~~ mirror-path
+// syntax or the ~default fallback (see resolveBranchKey).
+const RESERVED_BRANCH_SEGMENTS = new Set(['~by~', '~~', '~default'])
+
+// Memoized by `by` function reference (not resolved value), so a resolver
+// shared across meadows only ever runs once.
+const branchKeyCache = new Map()
+
+// Resolves and memoizes a meadow's `by`. Returns null if the meadow isn't
+// branching, undefined if by() resolved to no identity for this host (sow
+// falls back to ~default; gather refuses), or a validated key string.
+export async function resolveBranchKey(meadow) {
+  if (!meadow.by) return null
+
+  if (!branchKeyCache.has(meadow.by)) {
+    branchKeyCache.set(meadow.by, (async () => {
+      if (typeof meadow.by !== 'function') {
+        throw new Error(`meadow.by must be a function (got ${typeof meadow.by})`)
+      }
+      const raw = await meadow.by()
+      if (raw === undefined || raw === null) return undefined
+
+      const key = String(raw).trim()
+      if (key === '') {
+        throw new Error(`meadow.by() resolved to an empty key`)
+      }
+      if (key.includes('/')) {
+        throw new Error(`meadow.by() resolved to an invalid key '${key}': must not contain '/'`)
+      }
+      if (key.includes('..')) {
+        throw new Error(`meadow.by() resolved to an invalid key '${key}': must not contain '..'`)
+      }
+      if (RESERVED_BRANCH_SEGMENTS.has(key)) {
+        throw new Error(`meadow.by() resolved to an invalid key '${key}': collides with a reserved wildflower path segment`)
+      }
+      return key
+    })())
+  }
+
+  return branchKeyCache.get(meadow.by)
+}
+
+// What `sow` should read from for a meadow, and whether it's there.
+export function resolveSowSource(meadow, branchKey) {
+  const from = fixSourceControlPath(meadow.path, branchKey)
+  return {
+    from,
+    usingDefault: branchKey === undefined,
+    exists: fs.existsSync(from),
+  }
+}
+
 // Copy a single tracked path (file or subtree) between the live filesystem and
-// its mirror. `direction` is 'gather' (live → mirror) or 'sow' (mirror → live);
+// its mirror. `direction` is 'gather' (live -> mirror) or 'sow' (mirror -> live);
 // `target` may be given in either live-FS or meadows-mirror form. Resolves the
 // owning meadow, honors that meadow's `if` condition and filter, then copies
-// only files under the target — leaving every other tracked file untouched, so
+// only files under the target -- leaving every other tracked file untouched, so
 // concurrent edits to other files don't bleed in. The per-meadow gather()/sow()
 // callbacks are intentionally skipped (whole-meadow semantics). Returns an exit
 // status (0 ok / 1 problem) rather than exiting, so callers can aggregate across
@@ -244,8 +314,23 @@ export async function copyPath(target, meadows, direction) {
 
   const shouldRun = meadow.if ? await meadow.if() : true
   if (!shouldRun) {
-    console.log(`Skipping '${absolute}' — ${meadowLabel(meadow, index)} condition didn't pass on this host.`)
+    console.log(`Skipping '${absolute}' -- ${meadowLabel(meadow, index)} condition didn't pass on this host.`)
     return 0
+  }
+
+  // Always resolve this host's own key, never match.foreignBranchKey --
+  // that field exists only for read-side commands like diff.
+  let branchKey
+  try {
+    branchKey = await resolveBranchKey(meadow)
+  } catch (error) {
+    console.error(`Skipping '${absolute}' -- ${meadowLabel(meadow, index)} by() failed: ${error.message}`)
+    return 1
+  }
+
+  if (direction === 'gather' && branchKey === undefined) {
+    console.error(`Skipping '${absolute}' -- ${meadowLabel(meadow, index)}'s by() returned no identity for this host; there is nowhere safe to gather to. (Only 'sow' can read the shared '~default' variant.)`)
+    return 1
   }
 
   // Path of the target relative to the meadow root (posix-style, as the meadow
@@ -265,7 +350,7 @@ export async function copyPath(target, meadows, direction) {
         const isTarget = norm === relTarget || norm.startsWith(relTarget + '/')
         const isAncestorDir = relTarget.startsWith(norm + '/')
         if (!isTarget && !isAncestorDir) return false
-        // Ancestor dirs only need traversal — skip the meadow filter for them.
+        // Ancestor dirs only need traversal -- skip the meadow filter for them.
         if (isAncestorDir && !isTarget) return true
       }
       // Honor the meadow's own include/exclude filter (e.g. !*-tokens.json).
@@ -275,14 +360,30 @@ export async function copyPath(target, meadows, direction) {
 
   // Copy from the meadow root (not the named subtree) so meadow-root-relative
   // filter globs evaluate correctly; the filter narrows to the target.
-  const from = direction === 'gather' ? fixInstalledPath(meadow.path) : fixSourceControlPath(meadow.path)
-  const to = direction === 'gather' ? fixSourceControlPath(meadow.path) : fixInstalledPath(meadow.path)
+  const to = direction === 'gather' ? fixSourceControlPath(meadow.path, branchKey) : fixInstalledPath(meadow.path)
+
+  let from
+  if (direction === 'gather') {
+    from = fixInstalledPath(meadow.path)
+  } else {
+    const source = resolveSowSource(meadow, branchKey)
+    from = source.from
+    if (!source.exists) {
+      const reason = source.usingDefault ? `no '~default' variant exists yet` : `no '${branchKey}' branch has been gathered yet`
+      const hint = source.usingDefault ? '' : ` Run 'wildflower gather' on this host first.`
+      console.error(`Skipping '${absolute}' -- ${reason} for ${meadowLabel(meadow, index)}.${hint}`)
+      return 1
+    }
+    if (source.usingDefault) {
+      console.log(`${meadowLabel(meadow, index)}: by() returned no identity for this host; using the shared '~default' variant.`)
+    }
+  }
 
   try {
     const operations = await (meadow.curable ? curableCopy : copy)(from, to, options)
     const files = operations.filter((op) => op.stats?.isFile?.() ?? true)
     if (files.length === 0) {
-      console.error(`Nothing ${verb} for '${absolute}' — excluded by the ${meadowLabel(meadow, index)} filter?`)
+      console.error(`Nothing ${verb} for '${absolute}' -- excluded by the ${meadowLabel(meadow, index)} filter?`)
       return 1
     }
     for (const op of files) {
@@ -428,11 +529,22 @@ export async function run(
   })
 }
 
+export function stripLocalSuffix(name) {
+  return name.endsWith('.local') ? name.slice(0, -'.local'.length) : name
+}
+
+// Convenience `by` global. Strips the trailing .local macOS/mDNS commonly
+// appends (Linux/WSL typically don't), so the same host resolves to one key.
+export function hostname() {
+  return stripLocalSuffix(os.hostname())
+}
+
 export async function parseMeadows() {
   global.bash = bash
   global.zsh = zsh
   global.shell = shell
   global.run = run
+  global.hostname = hostname
 
   const { meadows } = await import(path.join(getValleyDir(), './meadows.mjs'))
   return { meadows }

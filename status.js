@@ -14,6 +14,8 @@ import {
   runDirectly,
   getValleyDir,
   getWatermarkDir,
+  resolveBranchKey,
+  meadowLabel,
 } from './common.js'
 
 /**
@@ -61,22 +63,38 @@ export async function status(targets = null, { porcelain = false, json = false }
         untracked = true
         continue
       }
+      let branchKey
+      try {
+        // Honor an explicitly named foreign key; otherwise this host's own.
+        branchKey = match.foreignBranchKey ?? await resolveBranchKey(match.meadow)
+      } catch (error) {
+        console.error(`Skipping '${target}': by() failed: ${error.message}`)
+        untracked = true
+        continue
+      }
       const rel = match.absolute.slice(match.installed.length)
       pairs.push({
         meadow: match.meadow,
-        mirror: fixSourceControlPath(match.meadow.path) + rel,
+        mirror: fixSourceControlPath(match.meadow.path, branchKey) + rel,
         root: match.installed,
-        mirrorRoot: fixSourceControlPath(match.meadow.path),
+        mirrorRoot: fixSourceControlPath(match.meadow.path, branchKey),
       })
     }
   } else {
-    for (const meadow of meadows) {
+    for (const [index, meadow] of Object.entries(meadows)) {
       if (!meadow.path) continue
+      let branchKey
+      try {
+        branchKey = await resolveBranchKey(meadow)
+      } catch (error) {
+        console.error(`Skipping ${meadowLabel(meadow, index)}: by() failed: ${error.message}`)
+        continue
+      }
       pairs.push({
         meadow,
-        mirror: fixSourceControlPath(meadow.path),
+        mirror: fixSourceControlPath(meadow.path, branchKey),
         root: path.resolve(fixInstalledPath(meadow.path)),
-        mirrorRoot: fixSourceControlPath(meadow.path),
+        mirrorRoot: fixSourceControlPath(meadow.path, branchKey),
       })
     }
   }

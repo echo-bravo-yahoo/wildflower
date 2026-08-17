@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import copy from 'recursive-copy'
-import { fixInstalledPath, fixSourceControlPath, logNoSuchFile, buildCopyOptions, parseMeadows, runDirectly, meadowLabel, curableCopy, copyPath, writeSyncMetadata, getValleyDir, getWatermarkDir } from './common.js'
+import { fixInstalledPath, fixSourceControlPath, logNoSuchFile, buildCopyOptions, parseMeadows, runDirectly, meadowLabel, curableCopy, copyPath, writeSyncMetadata, getValleyDir, getWatermarkDir, resolveBranchKey, resolveSowSource } from './common.js'
 
 export async function sow(targets = null) {
   const { meadows } = await parseMeadows()
@@ -48,25 +48,44 @@ export async function sow(targets = null) {
 
   try {
     for (const [index, meadow] of Object.entries(meadows)) {
-      let shouldSow = meadow.if ? await meadow.if?.() : true
+      let shouldSow
+      let branchKey
+      try {
+        shouldSow = meadow.if ? await meadow.if?.() : true
+        branchKey = shouldSow ? await resolveBranchKey(meadow) : null
+      } catch (error) {
+        console.error(`ERROR: ${meadowLabel(meadow, index)} -- 'if' or 'by' threw before this meadow could run; skipping just this meadow.`)
+        console.error(error)
+        continue
+      }
       let capableOfSow = Boolean(meadow.path) || Boolean(meadow.sow)
       if (shouldSow && capableOfSow) {
         let copiedFiles
 
         // We could, if we wanted to get smart, throw files together in a batch, then trigger them asynchronously.
         if (meadow.path) {
-          try {
-            let operations = await (meadow.curable ? curableCopy : copy)(
-              fixSourceControlPath(meadow.path),
-              fixInstalledPath(meadow.path),
-              buildCopyOptions(copyOptions, meadow)
-            )
+          const source = resolveSowSource(meadow, branchKey)
+          if (!source.exists) {
+            const reason = source.usingDefault ? `no '~default' variant exists yet` : `no '${branchKey}' branch has been gathered yet`
+            const hint = source.usingDefault ? '' : ` Run 'wildflower gather' first, then retry 'wildflower sow'.`
+            console.error(`Skipping ${meadowLabel(meadow, index)} -- ${reason} on this host.${hint}`)
+          } else {
+            if (source.usingDefault) {
+              console.log(`${meadowLabel(meadow, index)}: by() returned no identity for this host; using the shared '~default' variant.`)
+            }
+            try {
+              let operations = await (meadow.curable ? curableCopy : copy)(
+                source.from,
+                fixInstalledPath(meadow.path),
+                buildCopyOptions(copyOptions, meadow)
+              )
 
-            copiedFiles = operations.map(operation => operation.dest)
+              copiedFiles = operations.map(operation => operation.dest)
 
-            console.log(`Copied '${fixSourceControlPath(meadow.path)}' to '${fixInstalledPath(meadow.path)}'`)
-          } catch (error) {
-            logNoSuchFile(error)
+              console.log(`Copied '${source.from}' to '${fixInstalledPath(meadow.path)}'`)
+            } catch (error) {
+              logNoSuchFile(error)
+            }
           }
         }
 

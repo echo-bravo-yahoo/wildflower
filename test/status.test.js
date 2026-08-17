@@ -180,3 +180,56 @@ describe('wildflower status', () => {
     assert.equal(parsed.files.length, 4, '--json reports synced files too')
   })
 })
+
+// Same shape as setup(), but the tracked meadow is `by`-scoped to
+// 'current-host'. A foreign key's mirror subtree is pre-seeded with content
+// that would classify as 'behind' if status ever consulted the wrong
+// subtree, so a wrong-path bug fails loud rather than reporting 'synced'.
+function setupBranched() {
+  const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'wf-status-by-')))
+  roots.push(root)
+  const home = path.join(root, 'home')
+  const valley = path.join(root, 'valley')
+  const mirror = path.join(valley, 'meadows', '~by~', 'current-host', '~~', 'dots')
+  const foreignMirror = path.join(valley, 'meadows', '~by~', 'other-host', '~~', 'dots')
+  const live = path.join(home, 'dots')
+  fs.mkdirSync(mirror, { recursive: true })
+  fs.mkdirSync(foreignMirror, { recursive: true })
+  fs.mkdirSync(live, { recursive: true })
+  fs.writeFileSync(
+    path.join(valley, 'meadows.mjs'),
+    'export const meadows = [{ path: "~/dots", by: () => "current-host" }]\n'
+  )
+
+  fs.writeFileSync(path.join(mirror, 'f.txt'), 'v1\n')
+  fs.writeFileSync(path.join(live, 'f.txt'), 'v1\n')
+  fs.writeFileSync(path.join(foreignMirror, 'f.txt'), 'FOREIGN -- must never be classified against\n')
+
+  const run = (cmd) => execSync(cmd, { cwd: valley, stdio: 'ignore' })
+  run('git init -q')
+  run('git config user.email test@test.com')
+  run('git config user.name Test')
+  run('git add -A')
+  run('git commit -q -m mirror')
+  const commit = execSync('git rev-parse HEAD', { cwd: valley }).toString().trim()
+  writeWatermark(valley, commit)
+
+  return { root, home, valley, mirror, live, commit }
+}
+
+describe('wildflower status: by-scoped meadows', () => {
+  it('classifies against the current host\'s own mirror subtree, not the base path or a foreign key', () => {
+    const env = setupBranched()
+    const { code, stdout } = runStatus(env, ['--porcelain'])
+    assert.equal(stdout.trim(), '', 'synced against the current-host subtree, so nothing to report')
+    assert.equal(code, 0)
+  })
+
+  it('reports ahead when the live file diverges from the current host\'s own mirror subtree', () => {
+    const env = setupBranched()
+    fs.writeFileSync(path.join(env.live, 'f.txt'), 'local\n')
+    const { code, stdout } = runStatus(env, ['--porcelain'])
+    assert.deepEqual(states(stdout), { 'f.txt': 'ahead' })
+    assert.equal(code, 1)
+  })
+})
