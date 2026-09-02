@@ -180,8 +180,9 @@ wildflower diff                            # all meadows
 
 Targeted operations:
 
-- Skip meadow-level `if` conditions and `meadow.gather()` / `meadow.sow()` callbacks (those are whole-meadow semantics; the user named the file explicitly).
-- Ignore meadow filters when an explicit path is given. Filters exist to restrict wholesale recursion; when a path is named on the CLI, it's gathered/sowed as-is.
+- Honor meadow-level `if` conditions, same as wholesale -- a target under a meadow whose condition doesn't pass on this host is skipped.
+- Honor the meadow's own filter (e.g. `!*-tokens.json`) on top of narrowing the copy to the named path -- an explicit path doesn't bypass an exclusion.
+- Invoke the meadow's `gather()` / `sow()` callback after a successful copy, with `copiedFiles` scoped to just the file(s) copied for this target, not the whole meadow.
 - Preserve symlinks (`expand: false` in both directions).
 
 ## `wildflower path`

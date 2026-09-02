@@ -389,6 +389,20 @@ export async function copyPath(target, meadows, direction) {
     for (const op of files) {
       console.log(`Copied '${op.src}' to '${op.dest}'`)
     }
+
+    // A targeted sow/gather is still a sow/gather -- the meadow's hook (if
+    // any) must run here too, not just on the wholesale path, or a meadow
+    // like a patched-line config can have its post-copy normalization
+    // silently skipped depending on which command form the caller used.
+    if (meadow[direction]) {
+      try {
+        await meadow[direction]({ copiedFiles: files.map((op) => op.dest) })
+      } catch (error) {
+        console.error(`ERROR: ${direction === 'gather' ? 'Gather' : 'Sow'} hook failed for ${meadowLabel(meadow, index)}!`)
+        console.error(error)
+      }
+    }
+
     return 0
   } catch (e) {
     logNoSuchFile(e)
