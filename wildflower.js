@@ -38,7 +38,10 @@ form), gathers only those, honoring each meadow's \`if\` condition and filter
 
 Copy files from the meadows mirror back to the live filesystem. With no <path>,
 sows every meadow wholesale. With one or more <path>, sows only those, honoring
-each meadow's \`if\` condition and filter.`,
+each meadow's \`if\` condition and filter.
+
+A wholesale sow exits 1 if any meadow's \`if\`, \`by\` or \`sow()\` threw, or if
+sowing hit an unexpected error. The other meadows still run.`,
   diff: `wildflower diff [<path>...] [--verbose]
 
 Report divergence between the live filesystem and the meadows mirror. Read-only;
