@@ -110,6 +110,8 @@ You can run arbitrary javascript (and therefore shell commands) to perform some 
 }
 ```
 
+A wholesale `wildflower sow` exits 1 if a meadow's `if`, `by` or `sow()` throws, and still runs the remaining meadows. A throwing hook on a targeted `sow <path>` is logged but does not change the exit code.
+
 When combined with paths, both `gather` and `sow` recieve the paths of the final copied files.
 
 ```js

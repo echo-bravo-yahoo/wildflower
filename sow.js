@@ -46,6 +46,10 @@ export async function sow(targets = null) {
     expand: false
   }
 
+  // A failed meadow must not stop the others from being delivered, but it must
+  // reach the exit code: dotfiles-update.sh gates on `wildflower sow` succeeding.
+  const failed = []
+
   try {
     for (const [index, meadow] of Object.entries(meadows)) {
       let shouldSow
@@ -56,6 +60,7 @@ export async function sow(targets = null) {
       } catch (error) {
         console.error(`ERROR: ${meadowLabel(meadow, index)} -- 'if' or 'by' threw before this meadow could run; skipping just this meadow.`)
         console.error(error)
+        failed.push(meadowLabel(meadow, index))
         continue
       }
       let capableOfSow = Boolean(meadow.path) || Boolean(meadow.sow)
@@ -95,6 +100,7 @@ export async function sow(targets = null) {
           } catch (error) {
             console.error(`ERROR: Sow failed for ${meadowLabel(meadow, index)}!`)
             console.error(error)
+            failed.push(meadowLabel(meadow, index))
           }
         }
       } else {
@@ -111,9 +117,15 @@ export async function sow(targets = null) {
     // it - per-file sow returns above, before this point.
     writeSyncMetadata()
 
-    console.log('Done sowing.')
+    if (failed.length > 0) {
+      console.error(`Done sowing, but ${failed.length} meadow(s) failed: ${failed.join(', ')}`)
+      process.exitCode = 1
+    } else {
+      console.log('Done sowing.')
+    }
   } catch (err) {
     console.error('Error while sowing:', err)
+    process.exitCode = 1
   }
 }
 
