@@ -33,7 +33,10 @@ const COMMAND_HELP = {
 Copy files from the live filesystem into the meadows mirror. With no <path>,
 gathers every meadow wholesale. With one or more <path> (live-FS or mirror
 form), gathers only those, honoring each meadow's \`if\` condition and filter
-(excluded paths like *-tokens.json are refused, not mirrored).`,
+(excluded paths like *-tokens.json are refused, not mirrored).
+
+A wholesale gather exits 1 if any meadow's \`if\`, \`by\` or \`gather()\` threw, or
+if gathering hit an unexpected error. The other meadows still run.`,
   sow: `wildflower sow [<path>...]
 
 Copy files from the meadows mirror back to the live filesystem. With no <path>,
