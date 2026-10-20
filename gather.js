@@ -34,6 +34,10 @@ export async function gather(targets = null) {
     }
   }
 
+  // As in sow.js: a failed meadow must not stop the others, but it must reach the
+  // exit code, which is what cron-run.sh reports for backup-wildflower.sh.
+  const failed = []
+
   try {
     for (const [index, meadow] of Object.entries(meadows)) {
       let shouldGather
@@ -44,6 +48,7 @@ export async function gather(targets = null) {
       } catch (error) {
         console.error(`ERROR: ${meadowLabel(meadow, index)} -- 'if' or 'by' threw before this meadow could run; skipping just this meadow.`)
         console.error(error)
+        failed.push(meadowLabel(meadow, index))
         continue
       }
 
@@ -81,6 +86,7 @@ export async function gather(targets = null) {
           } catch (error) {
             console.error(`ERROR: Gather failed for ${meadowLabel(meadow, index)}!`)
             console.error(error)
+            failed.push(meadowLabel(meadow, index))
           }
         }
       } else {
@@ -91,9 +97,15 @@ export async function gather(targets = null) {
         }
       }
     }
-    console.log('Done gathering.')
+    if (failed.length > 0) {
+      console.error(`Done gathering, but ${failed.length} meadow(s) failed: ${failed.join(', ')}`)
+      process.exitCode = 1
+    } else {
+      console.log('Done gathering.')
+    }
   } catch (err) {
     console.error('Error while gathering:', err)
+    process.exitCode = 1
   }
 
   // At some point, we should probably add a separate command to clean up files that have been previously committed, but aren't referenced by the meadows.mjs anymore. That would require some thinking so we don't remove files we're skipping on this system, but are referenced in meadows.mjs.
