@@ -1,0 +1,6 @@
+{
+  "feature": {
+    "parallel": [],
+    "ordered": ["npm test"]
+  }
+}
