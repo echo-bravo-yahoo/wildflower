@@ -22,7 +22,7 @@ Commands:
   status [<path>...]   Classify tracked paths against the sync watermark.
   path   <path>...     Map a tracked path between live FS and meadows form.
   till                 Initialize a sample meadows.mjs.
-  version              Print version.
+  version, --version   Print version.
 
 Run 'wildflower <command> --help' for details on a command.`
 
