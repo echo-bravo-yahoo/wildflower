@@ -6,9 +6,9 @@ import * as fs from 'node:fs'
 import path from 'node:path'
 import {
   parseMeadows,
-  fixInstalledPath,
   fixSourceControlPath,
-  findMeadowForPath,
+  resolveMeadowForPath,
+  resolveInstallPaths,
   matchesFilter,
   relUnder,
   runDirectly,
@@ -57,7 +57,7 @@ export async function status(targets = null, { porcelain = false, json = false }
   const pairs = []
   if (targets && targets.length > 0) {
     for (const target of targets) {
-      const match = findMeadowForPath(target, meadows)
+      const match = await resolveMeadowForPath(target, meadows)
       if (!match) {
         console.error(`Skipping '${target}': not in meadows.mjs`)
         untracked = true
@@ -90,12 +90,14 @@ export async function status(targets = null, { porcelain = false, json = false }
         console.error(`Skipping ${meadowLabel(meadow, index)}: by() failed: ${error.message}`)
         continue
       }
-      pairs.push({
-        meadow,
-        mirror: fixSourceControlPath(meadow.path, branchKey),
-        root: path.resolve(fixInstalledPath(meadow.path)),
-        mirrorRoot: fixSourceControlPath(meadow.path, branchKey),
-      })
+      for (const installed of await resolveInstallPaths(meadow)) {
+        pairs.push({
+          meadow,
+          mirror: fixSourceControlPath(meadow.path, branchKey),
+          root: installed,
+          mirrorRoot: fixSourceControlPath(meadow.path, branchKey),
+        })
+      }
     }
   }
 

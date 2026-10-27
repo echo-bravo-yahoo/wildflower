@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 
-import copy from 'recursive-copy'
+import path from 'node:path'
 import * as fs from 'node:fs'
-import { parseMeadows, meadowLabel, curableCopy, copyPath, resolveBranchKey } from './common.js'
-import { fixInstalledPath, fixSourceControlPath, logNoSuchFile, buildCopyOptions, runDirectly } from './common.js'
+import { parseMeadows, meadowLabel, copyPath, resolveBranchKey, gatherInstallPaths } from './common.js'
+import { logNoSuchFile, buildCopyOptions, runDirectly } from './common.js'
 
 export async function gather(targets = null) {
   const { meadows } = await parseMeadows()
@@ -11,10 +11,8 @@ export async function gather(targets = null) {
   fs.mkdirSync('./meadows', { recursive: true })
 
   // Per-file (targeted) mode. Each target is a live FS path or a meadows mirror
-  // path; resolve to the owning meadow and copy just that path live FS → meadows,
-  // honoring the meadow's `if` condition and filter (so excluded paths like
-  // *-tokens.json are refused, not mirrored). The per-meadow gather() callback is
-  // skipped — that's whole-meadow semantics.
+  // path; process matching meadows in config order and copy just that path
+  // live FS → meadows, honoring each meadow's condition, filter, and hook.
   if (targets && targets.length > 0) {
     let code = 0
     for (const target of targets) {
@@ -60,16 +58,20 @@ export async function gather(targets = null) {
 
         if (meadow.path) {
           try {
-            let operations = await (meadow.curable ? curableCopy : copy)(
-              fixInstalledPath(meadow.path),
-              fixSourceControlPath(meadow.path, branchKey),
-              buildCopyOptions(copyOptions, meadow)
-            )
+            const result = await gatherInstallPaths(meadow, branchKey, buildCopyOptions(copyOptions, meadow))
+            if (result.conflicts.length) {
+              for (const conflict of result.conflicts) {
+                console.error(`WARNING: '${conflict.rel}' differs across install paths. Wrote a merge conflict file to '${path.join(result.mirror, conflict.rel)}'. Resolve the installed copies and run gather again.`)
+              }
+              process.exitCode = 1
+              return
+            }
+            let operations = result.operations
 
             // possibly there's a bug where the operation doesn't work
             copiedFiles = operations.map(operation => operation.dest)
 
-            console.log(`Copied '${fixInstalledPath(meadow.path)}' to '${fixSourceControlPath(meadow.path, branchKey)}'`)
+            console.log(`Copied '${result.installs.join("', '")}' to '${result.mirror}'`)
           } catch (e) {
             logNoSuchFile(e)
           }

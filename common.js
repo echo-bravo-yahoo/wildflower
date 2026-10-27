@@ -1,8 +1,9 @@
 import path from 'node:path'
 import os from 'node:os'
+import { createHash } from 'node:crypto'
 import { spawn, execSync } from 'node:child_process'
 import fs from 'fs'
-import { cp, readdir, stat, statfs } from 'node:fs/promises';
+import { cp, readdir, stat, statfs, lstat, readFile, readlink, mkdir, writeFile, unlink } from 'node:fs/promises';
 import { isNotJunk } from 'junk'
 import copy from 'recursive-copy'
 import maximatch from 'maximatch'
@@ -132,6 +133,122 @@ export function fixInstalledPath(filepath) {
   return filepath
 }
 
+// Resolve the live filesystem locations for a meadow. The first location is
+// the canonical path used by path mapping; all locations participate in sync.
+export async function resolveInstallPaths(meadow) {
+  if (meadow.installPath && typeof meadow.installPath !== 'function') {
+    throw new Error(`meadow.installPath must be a function (got ${typeof meadow.installPath})`)
+  }
+  const configured = meadow.installPath
+    ? await meadow.installPath(meadow.path)
+    : [meadow.path]
+  if (!Array.isArray(configured) || configured.length === 0 || configured.some(p => typeof p !== 'string' || !p)) {
+    throw new Error(`meadow.installPath must return a non-empty array of paths`)
+  }
+  return [...new Set(configured.map(p => path.resolve(fixInstalledPath(p))))]
+}
+
+async function collectInstallFiles(root, filter, junk = false) {
+  const files = new Map()
+  async function visit(fullPath, rel = '') {
+    let info
+    try { info = await lstat(fullPath) } catch (error) {
+      if (error.code === 'ENOENT') return
+      throw error
+    }
+    if (info.isDirectory()) {
+      for (const entry of await readdir(fullPath, { withFileTypes: true })) {
+        await visit(path.join(fullPath, entry.name), rel ? `${rel}/${entry.name}` : entry.name)
+      }
+      return
+    }
+    if (!junk && !isNotJunk(path.basename(rel))) return
+    if (rel && !matchesFilter(filter, rel)) return
+    if (info.isSymbolicLink()) {
+      files.set(rel, { type: 'symlink', data: Buffer.from(await readlink(fullPath)) })
+    } else if (info.isFile()) {
+      const hash = createHash('sha256')
+      for await (const chunk of fs.createReadStream(fullPath)) hash.update(chunk)
+      files.set(rel, { type: 'file', data: hash.digest() })
+    }
+  }
+  await visit(root)
+  return files
+}
+
+function sameFileState(left, right) {
+  if (!left || !right) return !left && !right
+  return left?.type === right?.type && left?.data.equals(right?.data)
+}
+
+function conflictVersion(state) {
+  if (!state) return '[file missing]'
+  const text = state.data.toString('utf8')
+  return Buffer.from(text, 'utf8').equals(state.data) ? text : `[${state.type} data, base64]\n${state.data.toString('base64')}`
+}
+
+/** Gather a meadow from every install location, writing conflict-marker files
+ * into the mirror and returning them without copying divergent sources over
+ * one another. `relTarget` narrows targeted gathers to one subtree. */
+export async function gatherInstallPaths(meadow, branchKey, options, relTarget = '') {
+  const installs = await resolveInstallPaths(meadow)
+  const mirror = fixSourceControlPath(meadow.path, branchKey)
+  const chosen = installs.find(p => fs.existsSync(p))
+  if (!chosen) throw Object.assign(new Error(`Did not find file ${installs[0]}`), { code: 'ENOENT', errno: -2, path: installs[0] })
+
+  if (installs.length === 1) {
+    const operations = await (meadow.curable ? curableCopy : copy)(chosen, mirror, options)
+    return { installs, mirror, operations, conflicts: [] }
+  }
+
+  const sourceMaps = await Promise.all(installs.map(p => collectInstallFiles(p, options.filter ?? meadow.filter, options.junk)))
+  const relatives = new Set(sourceMaps.flatMap(map => [...map.keys()]))
+  const conflicts = []
+  for (const rel of relatives) {
+    if (relTarget && rel !== relTarget && !rel.startsWith(relTarget + '/')) continue
+    const versions = sourceMaps.map((map, index) => ({ path: installs[index], state: map.get(rel) }))
+    if (versions.slice(1).some(version => !sameFileState(versions[0].state, version.state))) {
+      conflicts.push({ rel, versions })
+    }
+  }
+
+  const copyOptions = { ...options }
+  if (relTarget) {
+    copyOptions.filter = entry => {
+      const norm = String(entry).split(path.sep).join('/')
+      const inTarget = norm === relTarget || norm.startsWith(relTarget + '/') || relTarget.startsWith(norm + '/')
+      if (!inTarget) return false
+      if (norm !== relTarget && relTarget.startsWith(norm + '/')) return true
+      return matchesFilter(meadow.filter, norm)
+    }
+  }
+  const operations = conflicts.length
+    ? []
+    : await (meadow.curable ? curableCopy : copy)(chosen, mirror, copyOptions)
+
+  for (const conflict of conflicts) {
+    const versions = await Promise.all(conflict.versions.map(async version => ({
+      ...version,
+      state: version.state?.type === 'file'
+        ? { type: 'file', data: await readFile(path.join(version.path, conflict.rel)) }
+        : version.state,
+    })))
+    const first = versions[0]
+    const output = versions.slice(1).map(({ path: sourcePath, state }) =>
+      `<<<<<<< ${first.path}\n${conflictVersion(first.state)}\n=======\n${conflictVersion(state)}\n>>>>>>> ${sourcePath}\n`
+    ).join('')
+    const destination = path.join(mirror, conflict.rel)
+    await mkdir(path.dirname(destination), { recursive: true })
+    try {
+      if ((await lstat(destination)).isSymbolicLink()) await unlink(destination)
+    } catch (error) {
+      if (error.code !== 'ENOENT') throw error
+    }
+    await writeFile(destination, output)
+  }
+  return { installs, mirror, operations, conflicts }
+}
+
 export function fixSourceControlPath(filepath, ...rest) {
   // transform ~/ into ~~/ for safety
   if (filepath.length && filepath.startsWith(process.env['HOME'])) filepath = "~" + filepath.slice(process.env['HOME'].length)
@@ -195,6 +312,31 @@ export function findMeadowForPath(targetPath, meadows) {
   return { meadow: bestMeadow, installed: bestInstalled, absolute: abs, foreignBranchKey }
 }
 
+// Include alternate install locations and resolve mirror targets to the
+// canonical (first) install location. Keep the synchronous lookup available.
+export async function resolveMeadowForPath(targetPath, meadows) {
+  let match = findMeadowForPath(targetPath, meadows)
+  const meadowsRoot = path.join(getValleyDir(), 'meadows')
+  const abs = path.resolve(fixInstalledPath(targetPath))
+  const isMirror = abs === meadowsRoot || abs.startsWith(meadowsRoot + path.sep)
+  if (match && isMirror) {
+    const [installed] = await resolveInstallPaths(match.meadow)
+    match = { ...match, installed, absolute: installed + match.absolute.slice(match.installed.length) }
+  }
+  // A broad meadow.path match must not hide a more specific install location.
+  if (!isMirror) {
+    for (const meadow of meadows) {
+      if (!meadow.path) continue
+      const installs = await resolveInstallPaths(meadow)
+      const installed = installs.find(root => abs === root || abs.startsWith(root + path.sep))
+      if (installed && (!match || installed.length > match.installed.length)) {
+        match = { meadow, installed, absolute: abs, foreignBranchKey: null }
+      }
+    }
+  }
+  return match
+}
+
 /**
  * Bidirectional path mapping. Given any tracked path (live FS form or
  * meadows-mirror form), return the path in the other store.
@@ -202,7 +344,7 @@ export function findMeadowForPath(targetPath, meadows) {
  */
 export async function mapPath(targetPath) {
   const { meadows } = await parseMeadows()
-  const match = findMeadowForPath(targetPath, meadows)
+  const match = await resolveMeadowForPath(targetPath, meadows)
   if (!match) {
     const err = new Error(`path not in meadows.mjs; add it to track: ${targetPath}`)
     err.code = 'ENOMEADOW'
@@ -295,119 +437,138 @@ export function resolveSowSource(meadow, branchKey) {
 
 // Copy a single tracked path (file or subtree) between the live filesystem and
 // its mirror. `direction` is 'gather' (live -> mirror) or 'sow' (mirror -> live);
-// `target` may be given in either live-FS or meadows-mirror form. Resolves the
-// owning meadow, honors that meadow's `if` condition and filter, then copies
-// only files under the target -- leaving every other tracked file untouched, so
-// concurrent edits to other files don't bleed in. The per-meadow gather()/sow()
-// callbacks are intentionally skipped (whole-meadow semantics). Returns an exit
-// status (0 ok / 1 problem) rather than exiting, so callers can aggregate across
-// multiple targets.
+// `target` may be given in either live-FS or meadows-mirror form. Processes all
+// matching meadows in config order, honoring each meadow's condition, filter,
+// and hook. Copies only files under the target so unrelated edits don't bleed
+// in. Valley targets match meadow.path; live targets also match install paths.
+// Returns an exit status (0 ok / 1 problem) rather than exiting, so callers can
+// aggregate across multiple targets.
 export async function copyPath(target, meadows, direction) {
   const verb = direction === 'gather' ? 'gathered' : 'sown'
-  const match = findMeadowForPath(target, meadows)
-  if (!match) {
+  let matched = false
+  let code = 0
+  for (const [index, meadow] of meadows.entries()) {
+    const match = await resolveMeadowForPath(target, [meadow])
+    if (!match) continue
+    matched = true
+    const { installed, absolute } = match
+
+    const shouldRun = meadow.if ? await meadow.if() : true
+    if (!shouldRun) {
+      console.log(`Skipping '${absolute}' -- ${meadowLabel(meadow, index)} condition didn't pass on this host.`)
+      continue
+    }
+
+    // Always resolve this host's own key, never match.foreignBranchKey --
+    // that field exists only for read-side commands like diff.
+    let branchKey
+    try {
+      branchKey = await resolveBranchKey(meadow)
+    } catch (error) {
+      console.error(`Skipping '${absolute}' -- ${meadowLabel(meadow, index)} by() failed: ${error.message}`)
+      code = 1
+      continue
+    }
+
+    if (direction === 'gather' && branchKey === undefined) {
+      console.error(`Skipping '${absolute}' -- ${meadowLabel(meadow, index)}'s by() returned no identity for this host; there is nowhere safe to gather to. (Only 'sow' can read the shared '~default' variant.)`)
+      code = 1
+      continue
+    }
+
+    // Path of the target relative to the meadow root (posix-style, as the meadow
+    // glob filters expect). Empty when the target IS the meadow root. The mirror
+    // preserves the live tree's layout, so this aligns for both directions.
+    const relTarget = absolute.slice(installed.length).replace(/^[\\/]/, '').split(path.sep).join('/')
+    const meadowFilter = meadow.filter
+
+    const options = {
+      dot: true,
+      overwrite: true,
+      expand: false,
+      filter(entry) {
+        const norm = String(entry).split(path.sep).join('/')
+        // Restrict the copy to the target (and the dirs needed to reach it).
+        if (relTarget !== '') {
+          const isTarget = norm === relTarget || norm.startsWith(relTarget + '/')
+          const isAncestorDir = relTarget.startsWith(norm + '/')
+          if (!isTarget && !isAncestorDir) return false
+          // Ancestor dirs only need traversal -- skip the meadow filter for them.
+          if (isAncestorDir && !isTarget) return true
+        }
+        // Honor the meadow's own include/exclude filter (e.g. !*-tokens.json).
+        return matchesFilter(meadowFilter, norm)
+      },
+    }
+
+    // Copy from the meadow root (not the named subtree) so meadow-root-relative
+    // filter globs evaluate correctly; the filter narrows to the target.
+    let from
+    if (direction !== 'gather') {
+      const source = resolveSowSource(meadow, branchKey)
+      from = source.from
+      if (!source.exists) {
+        const reason = source.usingDefault ? `no '~default' variant exists yet` : `no '${branchKey}' branch has been gathered yet`
+        const hint = source.usingDefault ? '' : ` Run 'wildflower gather' on this host first.`
+        console.error(`Skipping '${absolute}' -- ${reason} for ${meadowLabel(meadow, index)}.${hint}`)
+        code = 1
+        continue
+      }
+      if (source.usingDefault) {
+        console.log(`${meadowLabel(meadow, index)}: by() returned no identity for this host; using the shared '~default' variant.`)
+      }
+    }
+
+    try {
+      let operations
+      if (direction === 'gather') {
+        const result = await gatherInstallPaths(meadow, branchKey, options, relTarget)
+        if (result.conflicts.length) {
+          for (const conflict of result.conflicts) {
+            console.error(`WARNING: '${conflict.rel}' differs across install paths. Wrote a merge conflict file to '${path.join(result.mirror, conflict.rel)}'. Resolve the installed copies and run gather again.`)
+          }
+          return 1
+        }
+        operations = result.operations
+      } else {
+        const installs = await resolveInstallPaths(meadow)
+        operations = []
+        for (const destination of installs) {
+          operations.push(...await (meadow.curable ? curableCopy : copy)(from, destination, options))
+        }
+      }
+      const files = operations.filter((op) => op.stats?.isFile?.() ?? true)
+      if (files.length === 0) {
+        console.error(`Nothing ${verb} for '${absolute}' -- excluded by the ${meadowLabel(meadow, index)} filter?`)
+        code = 1
+        continue
+      }
+      for (const op of files) {
+        console.log(`Copied '${op.src}' to '${op.dest}'`)
+      }
+
+      // A targeted sow/gather is still a sow/gather -- the meadow's hook (if
+      // any) must run here too, not just on the wholesale path, or a meadow
+      // like a patched-line config can have its post-copy normalization
+      // silently skipped depending on which command form the caller used.
+      if (meadow[direction]) {
+        try {
+          await meadow[direction]({ copiedFiles: files.map((op) => op.dest) })
+        } catch (error) {
+          console.error(`ERROR: ${direction === 'gather' ? 'Gather' : 'Sow'} hook failed for ${meadowLabel(meadow, index)}!`)
+          console.error(error)
+        }
+      }
+    } catch (e) {
+      logNoSuchFile(e)
+      code = 1
+    }
+  }
+  if (!matched) {
     console.error(`Skipping '${target}': not in meadows.mjs (add it to track)`)
     return 1
   }
-  const { meadow, installed, absolute } = match
-  const index = meadows.indexOf(meadow)
-
-  const shouldRun = meadow.if ? await meadow.if() : true
-  if (!shouldRun) {
-    console.log(`Skipping '${absolute}' -- ${meadowLabel(meadow, index)} condition didn't pass on this host.`)
-    return 0
-  }
-
-  // Always resolve this host's own key, never match.foreignBranchKey --
-  // that field exists only for read-side commands like diff.
-  let branchKey
-  try {
-    branchKey = await resolveBranchKey(meadow)
-  } catch (error) {
-    console.error(`Skipping '${absolute}' -- ${meadowLabel(meadow, index)} by() failed: ${error.message}`)
-    return 1
-  }
-
-  if (direction === 'gather' && branchKey === undefined) {
-    console.error(`Skipping '${absolute}' -- ${meadowLabel(meadow, index)}'s by() returned no identity for this host; there is nowhere safe to gather to. (Only 'sow' can read the shared '~default' variant.)`)
-    return 1
-  }
-
-  // Path of the target relative to the meadow root (posix-style, as the meadow
-  // glob filters expect). Empty when the target IS the meadow root. The mirror
-  // preserves the live tree's layout, so this aligns for both directions.
-  const relTarget = absolute.slice(installed.length).replace(/^[\\/]/, '').split(path.sep).join('/')
-  const meadowFilter = meadow.filter
-
-  const options = {
-    dot: true,
-    overwrite: true,
-    expand: false,
-    filter(entry) {
-      const norm = String(entry).split(path.sep).join('/')
-      // Restrict the copy to the target (and the dirs needed to reach it).
-      if (relTarget !== '') {
-        const isTarget = norm === relTarget || norm.startsWith(relTarget + '/')
-        const isAncestorDir = relTarget.startsWith(norm + '/')
-        if (!isTarget && !isAncestorDir) return false
-        // Ancestor dirs only need traversal -- skip the meadow filter for them.
-        if (isAncestorDir && !isTarget) return true
-      }
-      // Honor the meadow's own include/exclude filter (e.g. !*-tokens.json).
-      return matchesFilter(meadowFilter, norm)
-    },
-  }
-
-  // Copy from the meadow root (not the named subtree) so meadow-root-relative
-  // filter globs evaluate correctly; the filter narrows to the target.
-  const to = direction === 'gather' ? fixSourceControlPath(meadow.path, branchKey) : fixInstalledPath(meadow.path)
-
-  let from
-  if (direction === 'gather') {
-    from = fixInstalledPath(meadow.path)
-  } else {
-    const source = resolveSowSource(meadow, branchKey)
-    from = source.from
-    if (!source.exists) {
-      const reason = source.usingDefault ? `no '~default' variant exists yet` : `no '${branchKey}' branch has been gathered yet`
-      const hint = source.usingDefault ? '' : ` Run 'wildflower gather' on this host first.`
-      console.error(`Skipping '${absolute}' -- ${reason} for ${meadowLabel(meadow, index)}.${hint}`)
-      return 1
-    }
-    if (source.usingDefault) {
-      console.log(`${meadowLabel(meadow, index)}: by() returned no identity for this host; using the shared '~default' variant.`)
-    }
-  }
-
-  try {
-    const operations = await (meadow.curable ? curableCopy : copy)(from, to, options)
-    const files = operations.filter((op) => op.stats?.isFile?.() ?? true)
-    if (files.length === 0) {
-      console.error(`Nothing ${verb} for '${absolute}' -- excluded by the ${meadowLabel(meadow, index)} filter?`)
-      return 1
-    }
-    for (const op of files) {
-      console.log(`Copied '${op.src}' to '${op.dest}'`)
-    }
-
-    // A targeted sow/gather is still a sow/gather -- the meadow's hook (if
-    // any) must run here too, not just on the wholesale path, or a meadow
-    // like a patched-line config can have its post-copy normalization
-    // silently skipped depending on which command form the caller used.
-    if (meadow[direction]) {
-      try {
-        await meadow[direction]({ copiedFiles: files.map((op) => op.dest) })
-      } catch (error) {
-        console.error(`ERROR: ${direction === 'gather' ? 'Gather' : 'Sow'} hook failed for ${meadowLabel(meadow, index)}!`)
-        console.error(error)
-      }
-    }
-
-    return 0
-  } catch (e) {
-    logNoSuchFile(e)
-    return 1
-  }
+  return code
 }
 
 export async function curableCopy(

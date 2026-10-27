@@ -69,6 +69,25 @@ Example copying files:
 { path: `~/Library/Preferences/at.obdev.LaunchBar.ActionEditor.plist` },
 ```
 
+Use `installPath` when a meadow should sync with more than one live filesystem
+location. It receives the meadow's `path` and returns the paths that `gather`
+reads and `sow` writes. The first returned path is the canonical path used by
+`wildflower path`.
+
+```js
+{
+  path: '~/.gitconfig',
+  installPath: path => [
+    path,
+    path.replace('~', '/mnt/c/Users/Nathaniel')
+  ]
+},
+```
+
+If the locations contain different file contents, `gather` writes a Git-style
+conflict file into the meadow mirror and stops. Resolve the installed copies,
+then run `gather` again.
+
 Example copying folders:
 
 ```js
@@ -180,6 +199,7 @@ wildflower diff                            # all meadows
 
 Targeted operations:
 
+- Targeted `gather` and `sow` process all matching meadows in config order, just like wholesale operations. Live paths can match alternate install locations; valley paths match only `meadow.path`.
 - Honor meadow-level `if` conditions, same as wholesale -- a target under a meadow whose condition doesn't pass on this host is skipped.
 - Honor the meadow's own filter (e.g. `!*-tokens.json`) on top of narrowing the copy to the named path -- an explicit path doesn't bypass an exclusion.
 - Invoke the meadow's `gather()` / `sow()` callback after a successful copy, with `copiedFiles` scoped to just the file(s) copied for this target, not the whole meadow.
