@@ -3,7 +3,7 @@
 import { spawn } from 'node:child_process'
 import * as fs from 'node:fs'
 import path from 'node:path'
-import { parseMeadows, fixInstalledPath, fixSourceControlPath, findMeadowForPath, matchesFilter, relUnder, runDirectly, resolveBranchKey, meadowLabel } from './common.js'
+import { parseMeadows, fixSourceControlPath, resolveMeadowForPath, resolveInstallPaths, matchesFilter, relUnder, runDirectly, resolveBranchKey, meadowLabel } from './common.js'
 
 // Re-exported for callers (and tests) that have always reached for it here.
 export { relUnder }
@@ -35,7 +35,7 @@ export async function diff(targets = null, { verbose = false } = {}) {
   if (targets && targets.length > 0) {
     let resolveErrors = 0
     for (const target of targets) {
-      const match = findMeadowForPath(target, meadows)
+      const match = await resolveMeadowForPath(target, meadows)
       if (!match) {
         console.error(`Skipping '${target}': not in meadows.mjs`)
         resolveErrors = 1
@@ -73,13 +73,15 @@ export async function diff(targets = null, { verbose = false } = {}) {
         console.error(`Skipping ${meadowLabel(meadow, index)}: by() failed: ${error.message}`)
         continue
       }
-      pairs.push({
-        live: fixInstalledPath(meadow.path),
-        meadow: fixSourceControlPath(meadow.path, branchKey),
-        root: path.resolve(fixInstalledPath(meadow.path)),
-        mirrorRoot: fixSourceControlPath(meadow.path, branchKey),
-        filter: meadow.filter,
-      })
+      for (const installed of await resolveInstallPaths(meadow)) {
+        pairs.push({
+          live: installed,
+          meadow: fixSourceControlPath(meadow.path, branchKey),
+          root: installed,
+          mirrorRoot: fixSourceControlPath(meadow.path, branchKey),
+          filter: meadow.filter,
+        })
+      }
     }
   }
 

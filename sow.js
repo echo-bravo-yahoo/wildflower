@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import copy from 'recursive-copy'
-import { fixInstalledPath, fixSourceControlPath, logNoSuchFile, buildCopyOptions, parseMeadows, runDirectly, meadowLabel, curableCopy, copyPath, writeSyncMetadata, getValleyDir, getWatermarkDir, resolveBranchKey, resolveSowSource } from './common.js'
+import { logNoSuchFile, buildCopyOptions, parseMeadows, runDirectly, meadowLabel, curableCopy, copyPath, writeSyncMetadata, getValleyDir, getWatermarkDir, resolveBranchKey, resolveSowSource, resolveInstallPaths } from './common.js'
 
 export async function sow(targets = null) {
   const { meadows } = await parseMeadows()
@@ -11,9 +11,8 @@ export async function sow(targets = null) {
   }
 
   // Per-file (targeted) mode — symmetric to gather. Resolve each target to its
-  // owning meadow and copy just that path meadows → live FS, honoring the
-  // meadow's `if` condition and filter. The per-meadow sow() callback is skipped
-  // (whole-meadow semantics).
+  // matching meadows in config order and copy just that path meadows → live FS,
+  // honoring each meadow's condition, filter, and hook.
   if (targets && targets.length > 0) {
     let code = 0
     for (const target of targets) {
@@ -74,15 +73,17 @@ export async function sow(targets = null) {
               console.log(`${meadowLabel(meadow, index)}: by() returned no identity for this host; using the shared '~default' variant.`)
             }
             try {
-              let operations = await (meadow.curable ? curableCopy : copy)(
-                source.from,
-                fixInstalledPath(meadow.path),
-                buildCopyOptions(copyOptions, meadow)
-              )
-
-              copiedFiles = operations.map(operation => operation.dest)
-
-              console.log(`Copied '${source.from}' to '${fixInstalledPath(meadow.path)}'`)
+              const installs = await resolveInstallPaths(meadow)
+              copiedFiles = []
+              for (const destination of installs) {
+                const operations = await (meadow.curable ? curableCopy : copy)(
+                  source.from,
+                  destination,
+                  buildCopyOptions(copyOptions, meadow)
+                )
+                copiedFiles.push(...operations.map(operation => operation.dest))
+                console.log(`Copied '${source.from}' to '${destination}'`)
+              }
             } catch (error) {
               logNoSuchFile(error)
             }
