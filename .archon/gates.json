@@ -2,5 +2,9 @@
   "feature": {
     "parallel": [],
     "ordered": ["npm test"]
+  },
+  "tests": {
+    "parallel": [],
+    "ordered": ["npm test"]
   }
 }
