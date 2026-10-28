@@ -211,6 +211,8 @@ Reports divergence between live FS and the meadows mirror. Read-only; never muta
 
 Implementation delegates to `diff -rq` per pair.
 
+`--json` prints a single `{ counts, files }` document instead, using the same `files[i] = { state, live, mirror }` record shape as `status --json` (absolute paths on both sides, even when one side doesn't exist). `state` is one of `differ`, `live-only`, `mirror-only`, or `absent` (missing on both sides), and `counts` always has all four keys. Only divergent paths are listed, so an identical valley gives `"files": []`. `--verbose` is ignored with `--json`; exit codes are unchanged.
+
 ## Todo:
 
 - Add ability for wildflower to run commands

@@ -39,7 +39,7 @@ form), gathers only those, honoring each meadow's \`if\` condition and filter
 Copy files from the meadows mirror back to the live filesystem. With no <path>,
 sows every meadow wholesale. With one or more <path>, sows only those, honoring
 each meadow's \`if\` condition and filter.`,
-  diff: `wildflower diff [<path>...] [--verbose]
+  diff: `wildflower diff [<path>...] [--verbose] [--json]
 
 Report divergence between the live filesystem and the meadows mirror. Read-only;
 never mutates. Honors each meadow's filter, so excluded paths (e.g.
@@ -47,6 +47,8 @@ never mutates. Honors each meadow's filter, so excluded paths (e.g.
 
   --verbose   Print the unified patch for each differing file (default: just
               report which files differ).
+  --json      Emit the per-state counts and every divergent path as JSON (same
+              record shape as \`status --json\`); ignores --verbose.
 
 Exit codes: 0 = identical, 1 = differ, 2 = path not tracked / error.`,
   status: `wildflower status [<path>...] [--porcelain|--json]
@@ -103,8 +105,9 @@ if (command && COMMAND_HELP[command] && wantsHelp(rest)) {
   await pathCmd(rest)
 } else if (command === 'diff') {
   const verbose = rest.includes('--verbose')
-  const paths = rest.filter((a) => a !== '--verbose')
-  await diff(paths.length > 0 ? paths : null, { verbose })
+  const json = rest.includes('--json')
+  const paths = rest.filter((a) => a !== '--verbose' && a !== '--json')
+  await diff(paths.length > 0 ? paths : null, { verbose, json })
 } else if (command === 'status') {
   const porcelain = rest.includes('--porcelain')
   const json = rest.includes('--json')
