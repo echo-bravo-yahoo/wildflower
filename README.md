@@ -211,6 +211,8 @@ Reports divergence between live FS and the meadows mirror. Read-only; never muta
 
 Implementation delegates to `diff -rq` per pair.
 
+`--json` prints one document, `{ counts, files: [{ state, live, mirror }] }`, with states `differs`, `liveOnly`, `mirrorOnly`, `absent` (missing on both sides) and `other` (an unrecognized `diff` line, kept in `detail`). Only divergent paths are listed. With `--verbose`, each `differs` entry also carries its unified `patch`. Exit codes are the same as without `--json`.
+
 ## Todo:
 
 - Add ability for wildflower to run commands
