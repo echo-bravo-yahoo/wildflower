@@ -95,7 +95,7 @@ export async function diff(targets = null, { verbose = false, json = false } = {
     // Whether a path (under either root) is included by the meadow's filter.
     const included = (p) => {
       let rel = relUnder(p, root)
-      if (rel === null) rel = relUnder(p, mirrorRoot)
+      if (rel === null) rel = relUnder(p, path.resolve(mirrorRoot))
       if (rel === null) return true
       return matchesFilter(filter, rel)
     }
@@ -163,6 +163,7 @@ function printJson(files) {
 
 // Turn one included `diff -rq <live> <mirror>` line into a JSON entry. An
 // "Only in" path is mapped onto the other side via its path relative to its own.
+// Roots are resolved because a trailing-slash meadow path would defeat relUnder.
 async function jsonEntry(line, info, live, mirror, verbose) {
   if (info && info.a && info.b) {
     const entry = { state: 'differs', live: info.a, mirror: info.b }
@@ -170,9 +171,9 @@ async function jsonEntry(line, info, live, mirror, verbose) {
     return entry
   }
   if (info) {
-    const liveRel = relUnder(info.path, live)
+    const liveRel = relUnder(info.path, path.resolve(live))
     if (liveRel !== null) return { state: 'liveOnly', live: info.path, mirror: path.join(mirror, liveRel) }
-    const mirrorRel = relUnder(info.path, mirror)
+    const mirrorRel = relUnder(info.path, path.resolve(mirror))
     if (mirrorRel !== null) return { state: 'mirrorOnly', live: path.join(live, mirrorRel), mirror: info.path }
   }
   return { state: 'other', live: null, mirror: null, detail: line }
