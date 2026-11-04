@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 install_wildflower() {
   (npm ls -g wildflower >/dev/null)
